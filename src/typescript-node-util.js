@@ -16,7 +16,8 @@ export default class TypescriptNodeUtil {
         // this.printNode(this.sourceFile);
 
         this.nodeList.forEach(node => {
-            node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
+            node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end && n.indentLevel > node.indentLevel);
+            node.hasChild = (kind) => node.getAllChildren().filter(ch => kind == undefined || ch.kind == kind).length > 0;
             let possibleParent = this.nodeList.filter(n => n.pos <= node.pos && n.indentLevel == node.indentLevel - 1);
             node.getFirstParent = () => possibleParent[possibleParent.length - 1];
             let siblings = this.nodeList.filter(n => n.indentLevel == node.indentLevel && n.pos != node.pos);
@@ -50,12 +51,15 @@ export default class TypescriptNodeUtil {
         })
     }
 
-    uniqueByKeepLast(data, key) {
-        var unique = data.forEach((value, index, array) => {
-            console.log(value, index, array)
+    uniqueByKeepFirst(data, key) {
+        let seen = new Set();
+        const uniqueCalls = data.filter(item => {
+            const duplicate = seen.has(item[key]);
+            seen.add(item[key]);
+            return !duplicate;
         });
 
-        return [... new Map(data.map(x => [key(x), x])).values()]
+        return uniqueCalls;
     }
 
     getDecoratorWithIdentifier(node, identifier) {
@@ -78,22 +82,33 @@ export default class TypescriptNodeUtil {
     }
 
     // this.var = 'some value'
-    getThisAssignments(parentNode) {
+    getAssignments(parentNode, variableNames) {
         let assignments = parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.BinaryExpression)
-            .map(binExpr => binExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword))
-            .filter(thisKeyword => thisKeyword != undefined)
-            .map(thisKeyword => {
-                // bubble up from thisKeyword (might have array access and other weird things, so stop at the last propertyAccessExpression)
-                let current = thisKeyword;
+            .filter(be => be.hasChild(typescript.SyntaxKind.FirstAssignment))
+            .map(binExpr => {
+                // this.printNode(binExpr)
+                let children = binExpr.getAllChildren();
+                let varId = children.find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword);
+                if (varId == undefined) {
+                    let firstId = children.find(ch => ch.kind == typescript.SyntaxKind.Identifier);
+                    let isVar = variableNames.some(v => firstId.getText(this.sourceFile).startsWith(v));
+                    varId = isVar ? firstId : varId;
+                }
+                return varId;
+            })
+            .filter(varId => varId != undefined)
+            .map(varId => {
+                // bubble up from varId (might have array access and other weird things, so stop at the last propertyAccessExpression)
+                let current = varId;
                 let parent = current.getFirstParent();
                 while (parent.kind == typescript.SyntaxKind.PropertyAccessExpression) {
                     current = parent;
                     parent = current.getFirstParent();
                 }
-                return { propertyAccess: current.getText(this.sourceFile) };
+                return { propertyAccess: current.getText(this.sourceFile), isThis: varId.kind == typescript.SyntaxKind.ThisKeyword };
             }).filter(expr => expr != undefined);
 
-        return this.uniqueByKeepLast(assignments, a => a.propertyAccess)
+        return this.uniqueByKeepFirst(assignments, 'propertyAccess')
     }
 
     getConstructorProviders(firstIdentifier) {
@@ -133,36 +148,18 @@ export default class TypescriptNodeUtil {
 
         let providers = this.getConstructorProviders(firstIdentifier).map(provider => {
             let methods = providerMethodCalls.filter(p => p.propertyAccess == `this.${provider.identifier}`);
-            provider.methodIds = this.uniqueByKeepLast(methods, m => m.methodId).map(m => m.methodId);
+            provider.methodIds = this.uniqueByKeepFirst(methods, 'methodId').map(m => m.methodId);
             return provider
         });
 
         return providers;
     }
 
-    validateCallExpression(callExpression, extraValidCalls) {
-        var queue = new Queue();
-        queue.enqueue(callExpression);
-
-        var lastExpr = undefined;
-        var hasPropertyAccessExpr = false;
-
-        while (!queue.isEmpty()) {
-            lastExpr = queue.dequeue();
-            let nextExpr = lastExpr.getAllChildren().find(ch => ch.indentLevel == lastExpr.indentLevel + 1 && ch.kind == typescript.SyntaxKind.PropertyAccessExpression);
-
-            if (nextExpr == undefined) {
-                break;
-            }
-            hasPropertyAccessExpr = true;
-            queue.enqueue(nextExpr);
-        }
-
-        let isThisCall = lastExpr.getText(this.sourceFile).startsWith('this');
-        let id = lastExpr.getAllChildren()[1].getText(this.sourceFile);
-
-        // include USER desired calls
-        return hasPropertyAccessExpr && (isThisCall || extraValidCalls.indexOf(id) >= 0 || CONFIG.includeCalls.indexOf(id) >= 0);
+    isValidCallExpression(callExpression, extraValidCalls) {
+        // ['this.', 'param.', ...]
+        let validCallStarts = ['this.', ...extraValidCalls.map(c => { c + '.' }), ...CONFIG.includeCalls.map(c => c + '.')];
+        let callText = callExpression.getText(this.sourceFile);
+        return validCallStarts.some(start => callText.startsWith(start));
     }
 
     parseCallExpression(callExpression, extraValidCalls) {
@@ -184,7 +181,7 @@ export default class TypescriptNodeUtil {
                 return { validCall: false };
             }
 
-            innerCallExpression = lastCallExpr.getAllChildren().find(ch => ch.indentLevel > lastCallExpr.indentLevel && ch.kind == typescript.SyntaxKind.CallExpression);
+            innerCallExpression = lastCallExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.CallExpression);
             fun = secondLevelChildren[1].getText(this.sourceFile);
             isSubscription = isSubscription || fun == 'subscribe';
 
@@ -194,7 +191,7 @@ export default class TypescriptNodeUtil {
             }
         }
 
-        if (!this.validateCallExpression(lastCallExpr, extraValidCalls)) {
+        if (!this.isValidCallExpression(lastCallExpr, extraValidCalls)) {
             return { validCall: false };
         }
 
@@ -208,7 +205,7 @@ export default class TypescriptNodeUtil {
         // invalid: return;
         // valid: return something;
         let returnStatementsWithChildren = methodNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.ReturnStatement)
-            .filter(statement => statement.getAllChildren().filter(ch => ch.indentLevel > statement.indentLevel).length > 0);
+            .filter(statement => statement.hasChild());
 
         return returnStatementsWithChildren.length > 0;
     }
@@ -233,13 +230,6 @@ export default class TypescriptNodeUtil {
             parsedCalls = parsedCalls.filter(pc => paramIds.indexOf(pc.propertyAccess) < 0);
         }
 
-        // get only unique calls
-        let seen = new Set();
-        const uniqueCalls = parsedCalls.filter(item => {
-            const duplicate = seen.has(item.funCall);
-            seen.add(item.funCall);
-            return !duplicate;
-        });
-        return uniqueCalls;
+        return this.uniqueByKeepFirst(parsedCalls, 'funCall');
     }
 }

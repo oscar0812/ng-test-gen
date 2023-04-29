@@ -1,7 +1,7 @@
 const CONFIG = {
     includeCalls: ['sessionStorage'],
     spyOn: {
-        methodParams: false,
+        methodParams: true,
         methodCalls: true
     },
     format: {
