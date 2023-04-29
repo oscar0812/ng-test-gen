@@ -1,4 +1,4 @@
-import TypescriptNodeUtil from "./typescript-node-util.js";
+import TypescriptNodeUtil from "./src/typescript-node-util.js";
 const args = process.argv;
 
 let file_path = args.length > 2 ? args[2] : '';
