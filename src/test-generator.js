@@ -138,7 +138,11 @@ class TestGenerator {
     }
 
     generateCompleteTest(_imports, declarations, extraProviders) {
-        let allProviders = this.providers.concat(extraProviders || []);
+        _imports = _imports || [];
+        declarations = declarations || [];
+        extraProviders = extraProviders || [];
+        
+        let allProviders = this.providers.concat(extraProviders);
         this.generateProviderMocks(allProviders);
 
         this.log(`describe('${this.className}', () => {`)
@@ -183,6 +187,19 @@ class ComponentTestGenerator extends TestGenerator {
     }
 }
 
+class GuardTestGenerator extends TestGenerator {
+    constructor(filePath) {
+        super(filePath, 'guard', 'Injectable');
+        this.varDeclarationList = [
+            new VarDeclaration('guard', this.className, `TestBed.get(${this.className})`)
+        ];
+    }
+
+    generate() {
+        this.generateCompleteTest();
+    }
+}
+
 class ServiceTestGenerator extends TestGenerator {
     constructor(filePath) {
         super(filePath, 'service', 'Injectable');
@@ -211,19 +228,6 @@ class PipeTestGenerator extends TestGenerator {
     }
 }
 
-class GuardTestGenerator extends TestGenerator {
-    constructor(filePath) {
-        super(filePath, 'guard', 'Injectable');
-        this.varDeclarationList = [
-            new VarDeclaration('guard', undefined, `TestBed.get(${this.className})`)
-        ];
-    }
 
-    generate() {
-        this.generateCompleteTest([], [], [
-            { provide: this.className, mock: false }
-        ]);
-    }
-}
 
 export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator, GuardTestGenerator };
