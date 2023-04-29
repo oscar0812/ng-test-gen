@@ -1,3 +1,5 @@
+import typescript from 'typescript';
+
 const CONFIG = {
     includeCalls: ['sessionStorage'],
     spyOn: {
@@ -6,7 +8,9 @@ const CONFIG = {
     },
     format: {
         indentWith: '  '
-    }
+    },
+    ignoreKind: [typescript.SyntaxKind.QuestionDotToken],
+    ignoreFunctions: ['filter', 'map', 'forEach']
 };
 
 export default CONFIG;

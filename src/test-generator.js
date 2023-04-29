@@ -27,7 +27,7 @@ class TestGenerator {
         callExprs.forEach(callExpr => {
             let access = callExpr.propertyAccess.replace('this.', this.varName + '.');
             if (access == 'this') access = this.varName;
-            
+
             let funCall = `${access}.${callExpr.fun}`;
             let spyOnText = `spyOn(${access}, '${callExpr.fun}')`;
 
@@ -41,14 +41,14 @@ class TestGenerator {
 
             spyOns.push(spyOnText + `;`);
 
-            if(!callExpr.isPropertyAccessSubscribe) {
+            if (!callExpr.isPropertyAccessSubscribe) {
                 expectations.push(`expect(${funCall}).toHaveBeenCalledWith();`);
             }
         });
 
         let localAssignments = this.nodeUtil.getAssignments(method, [...paramValues.map(p => p.name)]);
 
-        if(resultVal != undefined) localAssignments.unshift({propertyAccess: resultVal});
+        if (resultVal != undefined) localAssignments.unshift({ propertyAccess: resultVal });
 
         if (localAssignments.length > 0 && expectations.length > 0) {
             expectations.push('');
@@ -61,6 +61,10 @@ class TestGenerator {
         return { spyOns, expectations };
     }
 
+    getIndentStr(indentNum) {
+        return CONFIG.format.indentWith.repeat(indentNum);
+    }
+
     log(indentNum, text) {
         if (indentNum == undefined && text == undefined) {
             this.logs.push("");
@@ -70,7 +74,7 @@ class TestGenerator {
                 text = indentNum;
                 indentNum = 0;
             }
-            this.logs.push(`${CONFIG.format.indentWith.repeat(indentNum)}${text}`);
+            this.logs.push(`${this.getIndentStr(indentNum)}${text}`);
         }
     }
 
@@ -84,7 +88,7 @@ class TestGenerator {
 
     generateMethodTests() {
         this.methods.forEach(method => {
-            let resultVal = this.nodeUtil.hasValidReturnStatement(method) ? 'result': undefined;
+            let resultVal = this.nodeUtil.hasValidReturnStatement(method) ? 'result' : undefined;
             let methodId = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier).getText(this.nodeUtil.sourceFile);
             let paramValues = this.nodeUtil.getMethodParmInitValues(method);
             let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal, paramValues);
@@ -93,7 +97,7 @@ class TestGenerator {
             paramValues.forEach(pv => this.log(2, `let ${pv.name}: any = ${JSON.stringify(pv.value)};`))
             spysAndExp.spyOns.forEach(x => this.log(2, `${x}`));
             this.log();
-            let assignment = resultVal ? 'let ' + resultVal + ' = ': ''; // let result =
+            let assignment = resultVal ? 'let ' + resultVal + ' = ' : ''; // let result =
             this.log(2, `${assignment}${this.varName}.${methodId}(${paramValues.map(pv => pv.name).join(', ')});\n`)
             spysAndExp.expectations.forEach(x => this.log(2, `${x}`));
             this.log(1, `});`);
@@ -101,10 +105,10 @@ class TestGenerator {
         });
     }
 
-    generateProvider(provider) {
+    getProviderString(provider) {
         if (provider.decorator == undefined) {
             if (provider.mock) {
-                return `{ provide: ${provider.provide}, useClass: Mock${provider.provide}}`;
+                return `{ provide: ${provider.provide}, useClass: Mock${provider.provide} }`;
             } else {
                 return `${provider.provide}`;
             }
@@ -119,8 +123,12 @@ class TestGenerator {
         this.log(3, `imports: [${_imports.join(', ')}],`);
         this.log(3, `declarations: [${declarations.join(', ')}],`);
         this.log(3, `schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],`);
-        let providerStrings = allProviders.map(p => this.generateProvider(p));
-        this.log(3, `providers:[${providerStrings.join(',\n\t\t\t')}]`);
+
+        this.log(3, `providers:[`);
+        let providersStr = allProviders.map(p => (this.getIndentStr(4) + this.getProviderString(p))).join(',\n');
+        this.log(providersStr);
+        this.log(3, `]`)
+
         this.log(2, `}).overrideComponent(${this.className}, {`);
         this.log();
         this.log(2, `}).compileComponents();`);

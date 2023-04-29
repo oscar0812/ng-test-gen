@@ -13,7 +13,6 @@ export default class TypescriptNodeUtil {
 
         this.traverseAllNodes(this.sourceFile);
         this.nodeList.sort((a, b) => a.pos - b.pos);
-        // this.printNode(this.sourceFile);
 
         this.nodeList.forEach(node => {
             node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end && n.indentLevel > node.indentLevel);
@@ -62,6 +61,11 @@ export default class TypescriptNodeUtil {
         return uniqueCalls;
     }
 
+    getIdentifiers(node) {
+        let validIds = [typescript.SyntaxKind.ThisKeyword, typescript.SyntaxKind.Identifier];
+        return node?.getAllChildren().filter(ch => validIds.indexOf(ch.kind) >= 0).map(ch => ch.getText(this.sourceFile));
+    }
+
     getDecoratorWithIdentifier(node, identifier) {
         return node.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.Decorator).find(dec => {
             return dec.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier && ch.getText(this.sourceFile) == identifier) != undefined;
@@ -85,7 +89,6 @@ export default class TypescriptNodeUtil {
         let assignments = parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.BinaryExpression)
             .filter(be => be.hasChild(typescript.SyntaxKind.FirstAssignment))
             .map(binExpr => {
-                // this.printNode(binExpr)
                 let children = binExpr.getAllChildren();
                 let varId = children.find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword);
                 if (varId == undefined) {
@@ -156,47 +159,48 @@ export default class TypescriptNodeUtil {
 
     isValidCallExpression(callExpression, extraValidCalls) {
         // ['this.', 'param.', ...]
-        let validCallStarts = ['this.', ...extraValidCalls.map(c => { c + '.' }), ...CONFIG.includeCalls.map(c => c + '.')];
+        let validCallStarts = ['this', ...extraValidCalls, ...CONFIG.includeCalls].map(c => c + '.');
         let callText = callExpression.getText(this.sourceFile);
         return validCallStarts.some(start => callText.startsWith(start));
     }
 
     parseCallExpression(callExpression, extraValidCalls) {
         let queue = new Queue();
+        let callStack = [callExpression];
 
-        queue.enqueue(callExpression);
-        let isSubscription = false;
+        let firstAccess = callExpression.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.PropertyAccessExpression);
+        queue.enqueue(firstAccess);
 
-        let lastCallExpr = undefined;
-        let secondLevelChildren = undefined;
-        let innerCallExpression = undefined;
-        let innerCallCount = 0;
-        let fun = undefined;
         while (!queue.isEmpty()) {
-            lastCallExpr = queue.dequeue();
-            secondLevelChildren = lastCallExpr.getAllChildren().filter(ch => ch.indentLevel == lastCallExpr.indentLevel + 2);
+            let innerCall = queue.dequeue()?.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.CallExpression);
 
-            if (secondLevelChildren.length < 2) {
-                return { validCall: false };
-            }
-
-            innerCallExpression = lastCallExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.CallExpression);
-            fun = secondLevelChildren[1].getText(this.sourceFile);
-            isSubscription = isSubscription || fun == 'subscribe';
-
-            if (innerCallExpression != null) {
-                queue.enqueue(innerCallExpression);
-                innerCallCount++;
+            if (innerCall != null) {
+                queue.enqueue(innerCall);
+                callStack.push(innerCall);
             }
         }
 
-        if (!this.isValidCallExpression(lastCallExpr, extraValidCalls)) {
+        let lastNode = callStack[callStack.length - 1];
+        let parentNode = callStack[callStack.length - 2];
+
+        if (!this.isValidCallExpression(lastNode, extraValidCalls)) {
             return { validCall: false };
         }
 
-        let propertyAccess = secondLevelChildren[0].getText(this.sourceFile);
-        let isPropertyAccessSubscribe = isSubscription && fun == 'subscribe';
-        let isCallExpressionSubscribe = isSubscription && fun != 'subscribe';
+        let propertyAccessExpr = lastNode.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.PropertyAccessExpression);
+
+        let propertyAccessIds = this.getIdentifiers(propertyAccessExpr);
+        let lastCallIds = this.getIdentifiers(lastNode);
+        let parentCallIds = this.getIdentifiers(parentNode);
+
+        let nextKeyword = parentNode && parentCallIds[lastCallIds.length];
+
+        let fun = propertyAccessIds[propertyAccessIds.length - 1];
+
+        let propertyAccess = propertyAccessIds.slice(0, -1).join('.');
+        let isPropertyAccessSubscribe = fun == 'subscribe';
+        let isCallExpressionSubscribe = nextKeyword == 'subscribe';
+        let isSubscription = isPropertyAccessSubscribe || isCallExpressionSubscribe;
         return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, isCallExpressionSubscribe, isPropertyAccessSubscribe, validCall: true };
     }
 
@@ -228,6 +232,8 @@ export default class TypescriptNodeUtil {
             // remove any calls (spys) on method params
             parsedCalls = parsedCalls.filter(pc => paramIds.indexOf(pc.propertyAccess) < 0);
         }
+
+        parsedCalls = parsedCalls.filter(pc => CONFIG.ignoreFunctions.indexOf(pc.fun) < 0);
 
         return this.uniqueByKeepFirst(parsedCalls, 'funCall');
     }
