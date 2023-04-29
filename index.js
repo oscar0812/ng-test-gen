@@ -1,19 +1,19 @@
 #! /usr/bin/env node
 import { program } from 'commander';
 
+import fs from 'fs';
 import path from 'path';
 import ERROR_CODES from './src/models/errors.js';
 import { NG_FILE_INFO } from './src/models/ng-file-info.js';
 
 program.option('--file <filePath>', 'File to generate tests for')
     .option('--no-print', 'disable print output to console', true)
-    .option('--write-to-file', 'Write to .spec.ts file if file is empty', false)
-    .option('--force', '--write-to-file will write over code in the .spec.ts file', false)
+    .option('--write-file', 'Write to .spec.ts file if file is empty', false)
+    .option('--force', '--write-file will write over code in the .spec.ts file', false)
 
 program.parse(process.argv);
 
 const options = program.opts();
-console.log(options)
 let filePath = options.file;
 
 if (filePath == undefined) {
@@ -31,5 +31,22 @@ let testGenerator = new fileInfo.generator(filePath);
 
 let output = testGenerator.generate();
 
-if(options.print != false)
+if(options.print != false) {
     console.log(output);
+}
+
+if(options.writeFile == true) {
+    let specFilePath = filePath.substring(0, filePath.lastIndexOf('.')) + '.spec.ts';
+
+    if(!fs.existsSync(specFilePath)) {
+        fs.writeFileSync(specFilePath, "");
+    }
+
+    let specIsEmpty = fs.readFileSync(specFilePath).length === 0;
+
+    if(!specIsEmpty && !options.force) {
+        console.log(`${specFilePath} is not empty! Please use --force`)
+    } else if(specIsEmpty || options.force == true) {
+        fs.writeFileSync(specFilePath, output);
+    }
+}

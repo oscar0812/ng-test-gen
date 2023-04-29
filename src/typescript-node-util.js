@@ -1,7 +1,6 @@
 import fs from 'fs';
 import typescript from 'typescript';
 import { Queue } from 'datastructures-js';
-import ERROR_CODES from './models/errors.js';
 import CONFIG from '../config.js';
 import VarDeclaration from './models/var-declaration.js';
 import { Provider } from './models/provider.js';
