@@ -27,6 +27,12 @@ export class AppComponent implements OnInit {
   ) { }
 
   public testIt(param) {
+    if(this.appPages.title == 'Map') {
+
+    }
+
+    this.appLowerPages.url.url2 = 'hello'
+    this.appLowerPages.url.url2[0] = 'hello'
     this.somesub.var.subscribe(a => a);
     this.somesub.func().subscribe(a => a);
     this.platform.hello();

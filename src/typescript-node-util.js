@@ -16,7 +16,8 @@ export default class TypescriptNodeUtil {
         // this.printNode(this.sourceFile);
 
         this.nodeList.forEach(node => {
-            node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
+            node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end && n.indentLevel > node.indentLevel);
+            node.hasChild = (kind) => node.getAllChildren().filter(ch => kind == undefined || ch.kind == kind).length > 0;
             let possibleParent = this.nodeList.filter(n => n.pos <= node.pos && n.indentLevel == node.indentLevel - 1);
             node.getFirstParent = () => possibleParent[possibleParent.length - 1];
             let siblings = this.nodeList.filter(n => n.indentLevel == node.indentLevel && n.pos != node.pos);
@@ -71,6 +72,7 @@ export default class TypescriptNodeUtil {
     // this.var = 'some value'
     getThisAssignments(parentNode) {
         let assignments = parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.BinaryExpression)
+            .filter(be => be.hasChild(typescript.SyntaxKind.FirstAssignment))
             .map(binExpr => binExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword))
             .filter(thisKeyword => thisKeyword != undefined)
             .map(thisKeyword => {
@@ -175,7 +177,7 @@ export default class TypescriptNodeUtil {
                 return { validCall: false };
             }
 
-            innerCallExpression = lastCallExpr.getAllChildren().find(ch => ch.indentLevel > lastCallExpr.indentLevel && ch.kind == typescript.SyntaxKind.CallExpression);
+            innerCallExpression = lastCallExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.CallExpression);
             fun = secondLevelChildren[1].getText(this.sourceFile);
             isSubscription = isSubscription || fun == 'subscribe';
 
@@ -199,7 +201,7 @@ export default class TypescriptNodeUtil {
         // invalid: return;
         // valid: return something;
         let returnStatementsWithChildren = methodNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.ReturnStatement)
-            .filter(statement => statement.getAllChildren().filter(ch => ch.indentLevel > statement.indentLevel).length > 0);
+            .filter(statement => statement.hasChild());
 
         return returnStatementsWithChildren.length > 0;
     }
