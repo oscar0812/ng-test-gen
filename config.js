@@ -3,6 +3,9 @@ const CONFIG = {
     spyOn: {
         methodParams: true,
         methodCalls: true
+    },
+    format: {
+        indentWith: '  '
     }
 };
 

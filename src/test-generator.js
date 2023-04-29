@@ -1,6 +1,7 @@
 import typescript from 'typescript';
 import VarDeclaration from './models/var-declaration.js';
 import TypescriptNodeUtil from './typescript-node-util.js';
+import CONFIG from '../config.js';
 
 class TestGenerator {
     constructor(filePath, varName, decoratorId, usesTestBed = true) {
@@ -50,17 +51,25 @@ class TestGenerator {
         return { spyOns, expectations };
     }
 
-    log(tabNum, text) {
-        if (tabNum == undefined && text == undefined) {
+    log(indentNum, text) {
+        if (indentNum == undefined && text == undefined) {
             console.log();
         }
         else {
-            if (tabNum != undefined && text == undefined) {
-                text = tabNum;
-                tabNum = 0;
+            if (indentNum != undefined && text == undefined) {
+                text = indentNum;
+                indentNum = 0;
             }
-            console.log(`${'\t'.repeat(tabNum)}${text}`);
+            console.log(`${CONFIG.format.indentWith.repeat(indentNum)}${text}`);
         }
+    }
+
+    generateConstructorTest() {
+        this.log(1, `it('should run #constructor()', () => {`);
+        this.varDeclarationList && this.varDeclarationList.forEach(vd => {
+            this.log(2, `expect(${vd.name}).toBeTruthy();`);
+        });
+        this.log(1, `});`);
     }
 
     generateMethodTests() {
@@ -117,7 +126,7 @@ class TestGenerator {
     generateProviderMocks(allProviders) {
         allProviders.filter(p => p.decorator == undefined && p.mock).forEach(provider => {
             this.log(`@Injectable()`);
-            if(provider.methodIds && provider.methodIds.length > 0) {
+            if (provider.methodIds && provider.methodIds.length > 0) {
                 this.log(0, `class Mock${provider.provide} {`);
                 provider.methodIds.forEach(m => this.log(1, `${m}() { }`));
                 this.log(0, `}`);
@@ -151,6 +160,9 @@ class TestGenerator {
         this.generateVarAssignmentBeforeEach();
         this.log();
 
+        this.generateConstructorTest();
+        this.log();
+
         this.generateMethodTests();
 
         this.log(`});`);
@@ -162,7 +174,7 @@ class ComponentTestGenerator extends TestGenerator {
         super(filePath, 'component', 'Component');
         this.varDeclarationList = [
             new VarDeclaration('fixture', `ComponentFixture<${this.className}>`, `TestBed.createComponent(${this.className})`),
-            new VarDeclaration('component', undefined, 'fixture.debugElement.componentInstance')
+            new VarDeclaration('component', this.className, 'fixture.debugElement.componentInstance')
         ];
     }
 
