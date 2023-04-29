@@ -88,7 +88,10 @@ export default class TypescriptNodeUtil {
     getConstructorProviders(firstIdentifier) {
         let constructor = firstIdentifier.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Constructor);
 
-        return constructor.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.Parameter).map(param => {
+        let constructorParams = constructor.getAllChildren()
+            .filter(ch => ch.indentLevel == constructor.indentLevel + 1 && ch.kind == typescript.SyntaxKind.Parameter);
+
+        return constructorParams.map(param => {
             let injectDec = this.getDecoratorWithIdentifier(param, 'Inject');
             if (injectDec != undefined) {
                 let id = injectDec.getAllChildren().filter(ch => ch.indentLevel == injectDec.indentLevel + 2).findLast(_ => true);
@@ -103,6 +106,9 @@ export default class TypescriptNodeUtil {
 
     parseCallExpression(callExpression, previousWasSubscription = false, hasParentCallExpr = false) {
         let secondLevelChildren = callExpression.getAllChildren().filter(ch => ch.indentLevel == callExpression.indentLevel + 2);
+        if (secondLevelChildren.length < 2) {
+            return { validCall: false };
+        }
         let innerCallExpression = callExpression.getAllChildren().find(ch => ch.indentLevel > callExpression.indentLevel && ch.kind == typescript.SyntaxKind.CallExpression);
         let propertyAccess = secondLevelChildren[0].getText(this.sourceFile);
         let fun = secondLevelChildren[1].getText(this.sourceFile);
@@ -113,12 +119,12 @@ export default class TypescriptNodeUtil {
             return this.parseCallExpression(innerCallExpression, true, true);
         }
 
-        return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, hasParentCallExpr };
+        return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, hasParentCallExpr, validCall: true };
     }
 
     getCallExpressions(parentNode) {
         let callExpressions = parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.CallExpression);
-        let parsedCalls = callExpressions.map(callExpression => this.parseCallExpression(callExpression));
+        let parsedCalls = callExpressions.map(callExpression => this.parseCallExpression(callExpression)).filter(call => call.validCall);
 
         // get only unique calls
         let seen = new Set();
