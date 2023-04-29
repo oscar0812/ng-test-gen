@@ -1,6 +1,6 @@
 {
   "name": "ngtestgen",
-  "version": "2.2.14",
+  "version": "2.2.15",
   "description": "Angular Test Generator",
   "main": "index.js",
   "type": "module",
@@ -19,5 +19,9 @@
   },
   "bin": {
     "ngtestgen": "./index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oscar0812/ng-test-gen.git"
   }
 }
