@@ -1,16 +1,22 @@
+#! /usr/bin/env node
+import { program } from 'commander';
+
 import path from 'path';
 import { ComponentTestGenerator, ServiceTestGenerator } from "./src/test-generator.js";
 import TypescriptNodeUtil from "./src/typescript-node-util.js";
 import FILE_TYPES from './src/models/ng-file-type.js';
 import ERROR_CODES from './src/models/errors.js';
 
-const args = process.argv;
+program.option('--file <filePath>', 'File to generate tests for')
 
-let filePath = args.length > 2 ? args[2] : '';
+program.parse(process.argv);
+
+const options = program.opts();
+let filePath = options.file;
 
 let basename = path.basename(filePath);
 const fileType = Object.keys(FILE_TYPES).find(key => basename.endsWith(FILE_TYPES[key].fileExt));
-if(fileType == undefined) {
+if (fileType == undefined) {
     throw ERROR_CODES.INVALID_FILE.toString();
 }
 
