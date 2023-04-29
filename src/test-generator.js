@@ -19,6 +19,7 @@ class TestGenerator {
         let expectations = [];
         callExprs.forEach(callExpr => {
             let access = callExpr.propertyAccess.replace('this.', this.type.varName + '.');
+            if(access == 'this') access = this.type.varName;
             let funCall = `${access}.${callExpr.fun}`;
             let spyOnText = `\tspyOn(${access}, '${callExpr.fun}')`;
             if (callExpr.isSubscription && !callExpr.hasParentCallExpr) {
@@ -28,7 +29,7 @@ class TestGenerator {
             }
 
             spyOns.push(spyOnText + `;`);
-            expectations.push(`\texpect(${funCall}).toHaveBeenWithCalledWith();`);
+            expectations.push(`\texpect(${funCall}).toHaveBeenCalledWith();`);
         });
 
         let thisAssignments = this.nodeUtil.getThisAssignments(method);
@@ -83,7 +84,7 @@ class TestGenerator {
         }
     }
 
-    generateCompleteTest(hasFixture = false, imports, declarations, extraProviders) {
+    generateCompleteTest(_imports, declarations, extraProviders) {
         let allProviders = this.providers.concat(extraProviders);
 
         allProviders.filter(p => p.decorator == undefined && p.mock).forEach(provider => {
@@ -92,13 +93,14 @@ class TestGenerator {
         })
 
         this.log(`describe('${this.className}', () => {`)
-        if (hasFixture) {
+        if (this.type == FILE_TYPES.COMPONENT) {
             this.log(1, `let fixture: ComponentFixture<${this.className}>;`);
+            this.log(1, `let component;`)
         }
         this.log(1, `let ${this.type.varName};\n`);
         this.log(1, `beforeEach(async(() => {`);
         this.log(2, `TestBed.configureTestingModule({`);
-        this.log(2, `imports: [${imports.join(', ')}],`);
+        this.log(2, `imports: [${_imports.join(', ')}],`);
         this.log(2, `declarations: [${declarations.join(', ')}],`);
         this.log(2, `schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],`);
         let providerStrings = allProviders.map(p => this.generateProvider(p));
@@ -106,6 +108,14 @@ class TestGenerator {
         this.log(2, `}).overrideComponent(${this.className}, {`);
         this.log();
         this.log(2, `}).compileComponents();`);
+        this.log(1, `}));`);
+        this.log();
+
+        this.log(1, `beforeEach(() => {`);
+        if (this.type == FILE_TYPES.COMPONENT) {
+            this.log(2, `fixture = TestBed.createComponent(${this.className});`);
+            this.log(2, `component = fixture.debugElement.componentInstance;`)
+        }
         this.log(1, `});`);
         this.log();
 
@@ -121,10 +131,7 @@ class ComponentTestGenerator extends TestGenerator {
     }
 
     generate() {
-        this.generateCompleteTest(true,
-            ['FormsModule', 'ReactiveFormsModule'],
-            [this.className],
-            []);
+        this.generateCompleteTest(['FormsModule', 'ReactiveFormsModule'],[this.className],[]);
     }
 }
 

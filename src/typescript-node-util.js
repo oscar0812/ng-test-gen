@@ -2,6 +2,7 @@ import fs from 'fs';
 import typescript from 'typescript';
 import { Queue } from 'datastructures-js';
 import ERROR_CODES from './models/errors.js';
+import CONFIG from '../config.js';
 
 export default class TypescriptNodeUtil {
     constructor(filePath) {
@@ -104,19 +105,44 @@ export default class TypescriptNodeUtil {
         });
     }
 
+    validateCallExpression(callExpression) {
+        var queue = new Queue();
+        queue.enqueue(callExpression);
+
+        var lastExpr = undefined;
+
+        while(!queue.isEmpty()) {
+            lastExpr = queue.dequeue();
+            let nextExpr = lastExpr.getAllChildren().find(ch => ch.indentLevel > lastExpr.indentLevel && ch.kind == typescript.SyntaxKind.PropertyAccessExpression);
+
+            if(nextExpr == undefined) {
+                break;
+            }
+            queue.enqueue(nextExpr);
+        }
+
+        let id = lastExpr.getAllChildren()[1].getText(this.sourceFile);
+        return CONFIG.excludeCalls.indexOf(id) < 0;
+    }
+
     parseCallExpression(callExpression, previousWasSubscription = false, hasParentCallExpr = false) {
         let secondLevelChildren = callExpression.getAllChildren().filter(ch => ch.indentLevel == callExpression.indentLevel + 2);
-        if (secondLevelChildren.length < 2) {
+        if(secondLevelChildren.length < 2) {
             return { validCall: false };
         }
+
         let innerCallExpression = callExpression.getAllChildren().find(ch => ch.indentLevel > callExpression.indentLevel && ch.kind == typescript.SyntaxKind.CallExpression);
         let propertyAccess = secondLevelChildren[0].getText(this.sourceFile);
         let fun = secondLevelChildren[1].getText(this.sourceFile);
         let isSubscription = previousWasSubscription || fun == 'subscribe';
 
-        if (innerCallExpression != null && isSubscription) {
+        if (innerCallExpression != null) {
             // has inner fun call which returns an observable
-            return this.parseCallExpression(innerCallExpression, true, true);
+            return this.parseCallExpression(innerCallExpression, isSubscription, true);
+        }
+
+        if(!this.validateCallExpression(callExpression)) {
+            return { validCall: false };
         }
 
         return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, hasParentCallExpr, validCall: true };
