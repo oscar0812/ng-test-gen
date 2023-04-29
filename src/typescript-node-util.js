@@ -17,7 +17,8 @@ export default class TypescriptNodeUtil {
 
         this.nodeList.forEach(node => {
             node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
-            node.getFirstParent = () => this.nodeList.findLast(n => n.pos <= node.pos && n.indentLevel == node.indentLevel - 1);
+            let possibleParent = this.nodeList.filter(n => n.pos <= node.pos && n.indentLevel == node.indentLevel - 1);
+            node.getFirstParent = () => possibleParent[possibleParent.length - 1];
             let siblings = this.nodeList.filter(n => n.indentLevel == node.indentLevel && n.pos != node.pos);
             node.getPreviousSiblings = () => siblings.filter(n => n.pos < node.pos)
             node.getNextSiblings = () => siblings.filter(n => n.end > node.end)
@@ -102,9 +103,9 @@ export default class TypescriptNodeUtil {
 
     getConstructorProvidersInfo(firstIdentifier) {
         let providerMethodCalls = this.sourceFile.getAllChildren()
-            .filter(ch => ch.kind == typescript.SyntaxKind.ThisKeyword)
+            .filter(ch => ch && ch.kind == typescript.SyntaxKind.ThisKeyword)
             .map(tk => tk?.getFirstParent()?.getFirstParent()?.getFirstParent())
-            .filter(parent => parent.kind == typescript.SyntaxKind.CallExpression)
+            .filter(parent => parent && parent.kind == typescript.SyntaxKind.CallExpression)
             .map(ce => {
                 let propertyAccess = ce.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.PropertyAccessExpression && ch.indentLevel == ce.indentLevel + 2).getText(this.sourceFile);
                 let methodId = ce.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier && ch.indentLevel == ce.indentLevel + 2).getText(this.sourceFile);

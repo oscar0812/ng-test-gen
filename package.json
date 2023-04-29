@@ -1,6 +1,6 @@
 {
   "name": "ngtestgen",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Angular Test Generator",
   "main": "index.js",
   "type": "module",

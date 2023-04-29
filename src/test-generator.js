@@ -181,7 +181,7 @@ class ComponentTestGenerator extends TestGenerator {
         super(filePath, 'component', 'Component');
         this.varDeclarationList = [
             new VarDeclaration('fixture', `ComponentFixture<${this.className}>`, `TestBed.createComponent(${this.className})`),
-            new VarDeclaration('component', this.className, 'fixture.debugElement.componentInstance')
+            new VarDeclaration('component', undefined, 'fixture.debugElement.componentInstance as any')
         ];
     }
 
@@ -194,7 +194,7 @@ class GuardTestGenerator extends TestGenerator {
     constructor(filePath) {
         super(filePath, 'guard', 'Injectable');
         this.varDeclarationList = [
-            new VarDeclaration('guard', this.className, `TestBed.get(${this.className})`)
+            new VarDeclaration('guard', undefined, `TestBed.get(${this.className}) as any`)
         ];
     }
 
@@ -207,7 +207,7 @@ class ServiceTestGenerator extends TestGenerator {
     constructor(filePath) {
         super(filePath, 'service', 'Injectable');
         this.varDeclarationList = [
-            new VarDeclaration('service', undefined, `TestBed.get(${this.className})`)
+            new VarDeclaration('service', undefined, `TestBed.get(${this.className}) as any`)
         ];
     }
 
