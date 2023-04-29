@@ -77,7 +77,6 @@ export default class TypescriptNodeUtil {
     }
 
     getMethodDeclarations(classDeclaration) {
-        this.printNode(classDeclaration)
         return classDeclaration.getAllChildren().filter(n => n.indentLevel == classDeclaration.indentLevel + 1 && n.kind == typescript.SyntaxKind.MethodDeclaration);
     }
 

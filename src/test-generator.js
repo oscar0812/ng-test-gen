@@ -14,7 +14,6 @@ class TestGenerator {
         let classDeclaration = this.nodeUtil.getClassDeclaration();
         this.decorator = this.nodeUtil.getDecoratorWithIdentifier(classDeclaration, decoratorId);
         this.classId = this.nodeUtil.getClassId(classDeclaration);
-        this.nodeUtil.printNode(this.classId);
         this.className = this.classId.getText(this.nodeUtil.sourceFile);
         this.methods = this.nodeUtil.getMethodDeclarations(classDeclaration);
         this.providers = this.nodeUtil.getConstructorProvidersInfo(classDeclaration);
