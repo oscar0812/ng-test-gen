@@ -19,7 +19,7 @@ class TestGenerator {
         this.providers.forEach(provider => provider.mock = true);
     }
 
-    generateSpyOnsAndExpectations(method, resultVal) {
+    generateSpyOnsAndExpectations(method, resultVal, paramValues) {
         let callExprs = this.nodeUtil.getCallExpressionsInMethod(method);
         let spyOns = [];
         let expectations = [];
@@ -45,14 +45,14 @@ class TestGenerator {
             }
         });
 
-        let thisAssignments = this.nodeUtil.getThisAssignments(method);
+        let localAssignments = this.nodeUtil.getAssignments(method, [...paramValues.map(p => p.name)]);
 
-        if(resultVal != undefined) thisAssignments.unshift({propertyAccess: resultVal});
+        if(resultVal != undefined) localAssignments.unshift({propertyAccess: resultVal});
 
-        if (thisAssignments.length > 0 && expectations.length > 0) {
+        if (localAssignments.length > 0 && expectations.length > 0) {
             expectations.push('');
         }
-        thisAssignments.forEach(assignment => {
+        localAssignments.forEach(assignment => {
             let access = assignment.propertyAccess.replace('this.', this.varName + '.');
             expectations.push(`expect(${access}).toBeUndefined();`);
         });
@@ -86,10 +86,10 @@ class TestGenerator {
             let resultVal = this.nodeUtil.hasValidReturnStatement(method) ? 'result': undefined;
             let methodId = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier).getText(this.nodeUtil.sourceFile);
             let paramValues = this.nodeUtil.getMethodParmInitValues(method);
-            let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal);
+            let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal, paramValues);
 
             this.log(1, `it('should run #${methodId}()', () => {`);
-            paramValues.forEach(pv => this.log(2, `let ${pv.name} = ${JSON.stringify(pv.value)};`))
+            paramValues.forEach(pv => this.log(2, `let ${pv.name}: any = ${JSON.stringify(pv.value)};`))
             spysAndExp.spyOns.forEach(x => this.log(2, `${x}`));
             this.log();
             let assignment = resultVal ? 'let ' + resultVal + ' = ': ''; // let result =

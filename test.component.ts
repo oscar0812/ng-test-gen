@@ -26,19 +26,12 @@ export class AppComponent implements OnInit {
     @Inject('STRING_STR') private data: any;
   ) { }
 
-  public testIt(param) {
-    if(this.appPages.title == 'Map') {
-
-    }
-
-    this.appLowerPages.url.url2 = 'hello'
-    this.appLowerPages.url.url2[0] = 'hello'
-    this.somesub.var.subscribe(a => a);
-    this.somesub.func().subscribe(a => a);
-    this.platform.hello();
-    this.platform.hello();
-    this.storage.no();
-    this.userService.signIn();
+  public testIt(param1, param2) {
+    thisiswrong.call();
+    param1.pe.text = '';
+    param2.pf[0] = '';
+    this.someval = 's';
+    sessionStorage.setItem('3', '2')
     return;
   }
 };

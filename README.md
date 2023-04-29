@@ -5,25 +5,27 @@ This is an npm package that generates the skeleton for Angular tests using Jasmi
 ## Installation
 
 To use this package, you need to have Node.js and npm installed on your machine. Once you have these, you can install the package using the following command:
-
+```
 npm install -g ngtestgen
+```
 
 ## Usage
 
 To use the Angular Test Generator run the following command:
-
+```
 ngtestgen --file **file-path**
+```
 
 Replace **file-path** with the name of the typescript file for which you want to create the test files.
 
 
-This will generate two files in the current directory:
-
-.spec.ts: This file contains the test cases for your component.
+This will generate a **.spec.ts** that contains the test cases for your component.
 
 For more information on paramaters run the following command:
 
+```
 ngtestgen --help
+```
 
 ## Configuration
 

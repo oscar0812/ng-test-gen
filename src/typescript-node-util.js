@@ -73,20 +73,30 @@ export default class TypescriptNodeUtil {
     }
 
     // this.var = 'some value'
-    getThisAssignments(parentNode) {
+    getAssignments(parentNode, variableNames) {
         let assignments = parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.BinaryExpression)
             .filter(be => be.hasChild(typescript.SyntaxKind.FirstAssignment))
-            .map(binExpr => binExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword))
-            .filter(thisKeyword => thisKeyword != undefined)
-            .map(thisKeyword => {
-                // bubble up from thisKeyword (might have array access and other weird things, so stop at the last propertyAccessExpression)
-                let current = thisKeyword;
+            .map(binExpr => {
+                // this.printNode(binExpr)
+                let children = binExpr.getAllChildren();
+                let varId = children.find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword);
+                if (varId == undefined) {
+                    let firstId = children.find(ch => ch.kind == typescript.SyntaxKind.Identifier);
+                    let isVar = variableNames.some(v => firstId.getText(this.sourceFile).startsWith(v));
+                    varId = isVar ? firstId : varId;
+                }
+                return varId;
+            })
+            .filter(varId => varId != undefined)
+            .map(varId => {
+                // bubble up from varId (might have array access and other weird things, so stop at the last propertyAccessExpression)
+                let current = varId;
                 let parent = current.getFirstParent();
                 while (parent.kind == typescript.SyntaxKind.PropertyAccessExpression) {
                     current = parent;
                     parent = current.getFirstParent();
                 }
-                return { propertyAccess: current.getText(this.sourceFile) };
+                return { propertyAccess: current.getText(this.sourceFile), isThis: varId.kind == typescript.SyntaxKind.ThisKeyword };
             }).filter(expr => expr != undefined);
 
         return this.uniqueByKeepFirst(assignments, 'propertyAccess')
@@ -136,29 +146,11 @@ export default class TypescriptNodeUtil {
         return providers;
     }
 
-    validateCallExpression(callExpression, extraValidCalls) {
-        var queue = new Queue();
-        queue.enqueue(callExpression);
-
-        var lastExpr = undefined;
-        var hasPropertyAccessExpr = false;
-
-        while (!queue.isEmpty()) {
-            lastExpr = queue.dequeue();
-            let nextExpr = lastExpr.getAllChildren().find(ch => ch.indentLevel == lastExpr.indentLevel + 1 && ch.kind == typescript.SyntaxKind.PropertyAccessExpression);
-
-            if (nextExpr == undefined) {
-                break;
-            }
-            hasPropertyAccessExpr = true;
-            queue.enqueue(nextExpr);
-        }
-
-        let isThisCall = lastExpr.getText(this.sourceFile).startsWith('this');
-        let id = lastExpr.getAllChildren()[1].getText(this.sourceFile);
-
-        // include USER desired calls
-        return hasPropertyAccessExpr && (isThisCall || extraValidCalls.indexOf(id) >= 0 || CONFIG.includeCalls.indexOf(id) >= 0);
+    isValidCallExpression(callExpression, extraValidCalls) {
+        // ['this.', 'param.', ...]
+        let validCallStarts = ['this.', ...extraValidCalls.map(c => { c + '.' }), ...CONFIG.includeCalls.map(c => c + '.')];
+        let callText = callExpression.getText(this.sourceFile);
+        return validCallStarts.some(start => callText.startsWith(start));
     }
 
     parseCallExpression(callExpression, extraValidCalls) {
@@ -190,7 +182,7 @@ export default class TypescriptNodeUtil {
             }
         }
 
-        if (!this.validateCallExpression(lastCallExpr, extraValidCalls)) {
+        if (!this.isValidCallExpression(lastCallExpr, extraValidCalls)) {
             return { validCall: false };
         }
 
