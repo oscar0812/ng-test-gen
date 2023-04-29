@@ -51,12 +51,15 @@ export default class TypescriptNodeUtil {
         })
     }
 
-    uniqueByKeepLast(data, key) {
-        var unique = data.forEach((value, index, array) => {
-            console.log(value, index, array)
+    uniqueByKeepFirst(data, key) {
+        let seen = new Set();
+        const uniqueCalls = data.filter(item => {
+            const duplicate = seen.has(item[key]);
+            seen.add(item[key]);
+            return !duplicate;
         });
 
-        return [... new Map(data.map(x => [key(x), x])).values()]
+        return uniqueCalls;
     }
 
     getDecoratorWithIdentifier(node, identifier) {
@@ -86,7 +89,7 @@ export default class TypescriptNodeUtil {
                 return { propertyAccess: current.getText(this.sourceFile) };
             }).filter(expr => expr != undefined);
 
-        return this.uniqueByKeepLast(assignments, a => a.propertyAccess)
+        return this.uniqueByKeepFirst(assignments, 'propertyAccess')
     }
 
     getConstructorProviders(firstIdentifier) {
@@ -126,7 +129,7 @@ export default class TypescriptNodeUtil {
 
         let providers = this.getConstructorProviders(firstIdentifier).map(provider => {
             let methods = providerMethodCalls.filter(p => p.propertyAccess == `this.${provider.identifier}`);
-            provider.methodIds = this.uniqueByKeepLast(methods, m => m.methodId).map(m => m.methodId);
+            provider.methodIds = this.uniqueByKeepFirst(methods, 'methodId').map(m => m.methodId);
             return provider
         });
 
@@ -226,13 +229,6 @@ export default class TypescriptNodeUtil {
             parsedCalls = parsedCalls.filter(pc => paramIds.indexOf(pc.propertyAccess) < 0);
         }
 
-        // get only unique calls
-        let seen = new Set();
-        const uniqueCalls = parsedCalls.filter(item => {
-            const duplicate = seen.has(item.funCall);
-            seen.add(item.funCall);
-            return !duplicate;
-        });
-        return uniqueCalls;
+        return this.uniqueByKeepFirst(parsedCalls, 'funCall');
     }
 }
