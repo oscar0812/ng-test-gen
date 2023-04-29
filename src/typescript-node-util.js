@@ -56,18 +56,6 @@ export default class TypescriptNodeUtil {
         });
     }
 
-    getComponentClassIdentifier() {
-        let decorator = this.getDecoratorWithIdentifier(this.sourceFile, 'Component');
-        let identifiers = decorator.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.Identifier);
-        if (identifiers.length == 0) {
-            throw ERROR_CODES.NO_COMPONENT.toString();
-        }
-        if (identifiers.length > 1) {
-            throw ERROR_CODES.TOO_MANY_COMPONENTS.toString();
-        }
-        return identifiers[0];
-    }
-
     getMethodDeclarations(decorator) {
         return decorator.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.MethodDeclaration);
     }
