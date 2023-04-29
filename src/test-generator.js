@@ -19,7 +19,7 @@ class TestGenerator {
         this.providers.forEach(provider => provider.mock = true);
     }
 
-    generateSpyOnsAndExpectations(method) {
+    generateSpyOnsAndExpectations(method, resultVal) {
         let callExprs = this.nodeUtil.getCallExpressionsInMethod(method);
         let spyOns = [];
         let expectations = [];
@@ -29,7 +29,7 @@ class TestGenerator {
             let funCall = `${access}.${callExpr.fun}`;
             let spyOnText = `spyOn(${access}, '${callExpr.fun}')`;
             if (callExpr.isSubscription && !callExpr.hasParentCallExpr) {
-                spyOnText = `${funCall} = of({})`;
+                spyOnText = `${access} = of({})`;
             } else if (callExpr.isSubscription && callExpr.hasParentCallExpr) {
                 spyOnText += `.and.returnValue(of({}))`;
             } else if (callExpr.usesMethodParam) {
@@ -41,6 +41,9 @@ class TestGenerator {
         });
 
         let thisAssignments = this.nodeUtil.getThisAssignments(method);
+
+        if(resultVal != undefined) thisAssignments.unshift({propertyAccess: resultVal});
+
         if (thisAssignments.length > 0 && expectations.length > 0) {
             expectations.push('');
         }
@@ -75,16 +78,18 @@ class TestGenerator {
 
     generateMethodTests() {
         this.methods.forEach(method => {
+            let resultVal = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ReturnStatement) ? 'result' : undefined;
             let methodId = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier).getText(this.nodeUtil.sourceFile);
             let paramValues = this.nodeUtil.getMethodParmInitValues(method);
-            let data = this.generateSpyOnsAndExpectations(method);
+            let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal);
 
             this.log(1, `it('should run #${methodId}()', () => {`);
             paramValues.forEach(pv => this.log(2, `let ${pv.name} = ${JSON.stringify(pv.value)};`))
-            data.spyOns.forEach(x => this.log(2, `${x}`));
+            spysAndExp.spyOns.forEach(x => this.log(2, `${x}`));
             this.log();
-            this.log(2, `${this.varName}.${methodId}(${paramValues.map(pv => pv.name).join(', ')});\n`)
-            data.expectations.forEach(x => this.log(2, `${x}`));
+            let assignment = resultVal ? 'let ' + resultVal + ' = ': ''; // let result =
+            this.log(2, `${assignment}${this.varName}.${methodId}(${paramValues.map(pv => pv.name).join(', ')});\n`)
+            spysAndExp.expectations.forEach(x => this.log(2, `${x}`));
             this.log(1, `});`);
             this.log();
         });
@@ -105,11 +110,11 @@ class TestGenerator {
     generateTestBedBeforeEach(_imports, declarations, allProviders) {
         this.log(1, `beforeEach(async(() => {`);
         this.log(2, `TestBed.configureTestingModule({`);
-        this.log(2, `imports: [${_imports.join(', ')}],`);
-        this.log(2, `declarations: [${declarations.join(', ')}],`);
-        this.log(2, `schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],`);
+        this.log(3, `imports: [${_imports.join(', ')}],`);
+        this.log(3, `declarations: [${declarations.join(', ')}],`);
+        this.log(3, `schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],`);
         let providerStrings = allProviders.map(p => this.generateProvider(p));
-        this.log(2, `providers:[${providerStrings.join(',\n\t\t\t')}]`);
+        this.log(3, `providers:[${providerStrings.join(',\n\t\t\t')}]`);
         this.log(2, `}).overrideComponent(${this.className}, {`);
         this.log();
         this.log(2, `}).compileComponents();`);
@@ -186,7 +191,7 @@ class ComponentTestGenerator extends TestGenerator {
     }
 
     generate() {
-        this.generateCompleteTest(['FormsModule', 'ReactiveFormsModule'], [this.className], []);
+        return this.generateCompleteTest(['FormsModule', 'ReactiveFormsModule'], [this.className], []);
     }
 }
 

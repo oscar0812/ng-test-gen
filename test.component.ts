@@ -26,21 +26,9 @@ export class AppComponent implements OnInit {
     @Inject('STRING_STR') private data: any;
   ) { }
 
-  async ngOnInit() {
-    await this.platform.ready();
-    await this.storage.init();
-    const isDark = await this.storage.getDartTheme();
-    // SET THEME
-    if (isDark) {
-      document.body.classList.add('dark');
-    }
-    this.userService.user$.subscribe(user => this.user = user);
-    this.userService.getSomeSubFunction().subscribe(user => this.var5 = var6);
-    this.checkServer();
-
-    this.var = 'some value';
-    this.var1.var2.var3 = this.var4;
-
-    let user = sessionStorage.getItem('user')
+  public testIt(param) {
+    this.somesub.var.subscribe(a => a);
+    this.somesub.func().subscribe(a => a);
+    return data;
   }
 };
