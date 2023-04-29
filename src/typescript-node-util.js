@@ -116,7 +116,7 @@ export default class TypescriptNodeUtil {
     getConstructorProvidersInfo(firstIdentifier) {
         let providerMethodCalls = this.sourceFile.getAllChildren()
             .filter(ch => ch.kind == typescript.SyntaxKind.ThisKeyword)
-            .map(tk => tk.getFirstParent().getFirstParent().getFirstParent())
+            .map(tk => tk?.getFirstParent()?.getFirstParent()?.getFirstParent())
             .filter(parent => parent.kind == typescript.SyntaxKind.CallExpression)
             .map(ce => {
                 let propertyAccess = ce.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.PropertyAccessExpression && ch.indentLevel == ce.indentLevel + 2).getText(this.sourceFile);
@@ -147,21 +147,23 @@ export default class TypescriptNodeUtil {
         queue.enqueue(callExpression);
 
         var lastExpr = undefined;
+        var hasPropertyAccessExpr = false;
 
         while (!queue.isEmpty()) {
             lastExpr = queue.dequeue();
-            let nextExpr = lastExpr.getAllChildren().find(ch => ch.indentLevel > lastExpr.indentLevel && ch.kind == typescript.SyntaxKind.PropertyAccessExpression);
+            let nextExpr = lastExpr.getAllChildren().find(ch => ch.indentLevel == lastExpr.indentLevel + 1 && ch.kind == typescript.SyntaxKind.PropertyAccessExpression);
 
             if (nextExpr == undefined) {
                 break;
             }
+            hasPropertyAccessExpr = true;
             queue.enqueue(nextExpr);
         }
 
         let id = lastExpr.getAllChildren()[1].getText(this.sourceFile);
 
         // exclude USER desired calls && local variable calls are out of scope
-        return CONFIG.excludeCalls.indexOf(id) < 0 && localVarDeclarationIds.indexOf(id) < 0;
+        return hasPropertyAccessExpr && CONFIG.excludeCalls.indexOf(id) < 0 && localVarDeclarationIds.indexOf(id) < 0;
     }
 
     parseCallExpression(callExpression, localVarDeclarationIds) {
