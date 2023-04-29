@@ -43,16 +43,31 @@ class TestGenerator {
         return { spyOns, expectations };
     }
 
-    generateTests() {
+    log(tabNum, text) {
+        if (tabNum == undefined && text == undefined) {
+            console.log();
+        }
+        else {
+            if (tabNum != undefined && text == undefined) {
+                text = tabNum;
+                tabNum = 0;
+            }
+            console.log(`${'\t'.repeat(tabNum)}${text}`);
+        }
+    }
+
+    generateMethodTests() {
         this.methods.forEach(method => {
             let methodId = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier).getText(this.nodeUtil.sourceFile);
             let data = this.generateSpyOnsAndExpectations(method);
 
-            console.log(`it('should run #${methodId}()', async () => {`);
-            data.spyOns.forEach(x => console.log(x));
-            console.log(`\n\t${this.type.varName}.${methodId}();\n`)
-            data.expectations.forEach(x => console.log(x));
-            console.log(`});\n`);
+            this.log(1, `it('should run #${methodId}()', () => {`);
+            data.spyOns.forEach(x => this.log(1, `${x}`));
+            this.log();
+            this.log(2, `${this.type.varName}.${methodId}();\n`)
+            data.expectations.forEach(x => this.log(1, `${x}`));
+            this.log(1, `});`);
+            this.log();
         });
     }
 
@@ -68,26 +83,35 @@ class TestGenerator {
         }
     }
 
-    generateInitTemplate(hasFixture = false, imports, declarations, extraProviders) {
+    generateCompleteTest(hasFixture = false, imports, declarations, extraProviders) {
         let allProviders = this.providers.concat(extraProviders);
 
         allProviders.filter(p => p.decorator == undefined && p.mock).forEach(provider => {
-            console.log(`@Injectable()`);
-            console.log(`class Mock${provider.provide} { }\n`);
+            this.log(`@Injectable()`);
+            this.log(`class Mock${provider.provide} { }\n`);
         })
 
-        console.log(`describe('${this.className}', () => {`)
+        this.log(`describe('${this.className}', () => {`)
         if (hasFixture) {
-            console.log(`\tlet fixture: ComponentFixture<${this.className}>;`);
+            this.log(1, `let fixture: ComponentFixture<${this.className}>;`);
         }
-        console.log(`\tlet ${this.type.varName};\n`)
-        console.log('\tTestBed.configureTestingModule({');
-        console.log(`\t\timports: [${imports.join(', ')}],`);
-        console.log(`\t\tdeclarations: [${declarations.join(', ')}],`);
-        console.log(`\t\tschemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],`);
+        this.log(1, `let ${this.type.varName};\n`);
+        this.log(1, `beforeEach(async(() => {`);
+        this.log(2, `TestBed.configureTestingModule({`);
+        this.log(2, `imports: [${imports.join(', ')}],`);
+        this.log(2, `declarations: [${declarations.join(', ')}],`);
+        this.log(2, `schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],`);
         let providerStrings = allProviders.map(p => this.generateProvider(p));
-        console.log(`\t\tproviders:[\n${providerStrings.join(',\n')}\n]`);
-        console.log(`\t}).overrideComponent(${this.className}, {}).compileComponents();`)
+        this.log(2, `providers:[${providerStrings.join(',\n\t\t\t')}]`);
+        this.log(2, `}).overrideComponent(${this.className}, {`);
+        this.log();
+        this.log(2, `}).compileComponents();`);
+        this.log(1, `});`);
+        this.log();
+
+        this.generateMethodTests();
+
+        this.log(`});`);
     }
 }
 
@@ -96,13 +120,11 @@ class ComponentTestGenerator extends TestGenerator {
         super(nodeUtil, FILE_TYPES.COMPONENT);
     }
 
-    getText() {
-        this.generateInitTemplate(true,
+    generate() {
+        this.generateCompleteTest(true,
             ['FormsModule', 'ReactiveFormsModule'],
             [this.className],
             []);
-        this.generateTests();
-        console.log(`});`)
     }
 }
 
