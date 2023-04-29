@@ -10,7 +10,7 @@ export default class TypescriptNodeUtil {
         this.sourceFile = typescript.createSourceFile(filePath, source, typescript.ScriptTarget.Latest);
 
         this.traverseAllNodes(this.sourceFile);
-        this.printNode(this.sourceFile);
+        // this.printNode(this.sourceFile);
 
         this.nodeList.forEach(node => {
             node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
