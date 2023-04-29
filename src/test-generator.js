@@ -5,6 +5,7 @@ import CONFIG from '../config.js';
 
 class TestGenerator {
     constructor(filePath, varName, decoratorId, usesTestBed = true) {
+        this.logs = [];
         this.varName = varName;
         this.decoratorId = decoratorId;
         this.usesTestBed = usesTestBed;
@@ -53,14 +54,14 @@ class TestGenerator {
 
     log(indentNum, text) {
         if (indentNum == undefined && text == undefined) {
-            console.log();
+            this.logs.push("");
         }
         else {
             if (indentNum != undefined && text == undefined) {
                 text = indentNum;
                 indentNum = 0;
             }
-            console.log(`${CONFIG.format.indentWith.repeat(indentNum)}${text}`);
+            this.logs.push(`${CONFIG.format.indentWith.repeat(indentNum)}${text}`);
         }
     }
 
@@ -141,7 +142,7 @@ class TestGenerator {
         _imports = _imports || [];
         declarations = declarations || [];
         extraProviders = extraProviders || [];
-        
+
         let allProviders = this.providers.concat(extraProviders);
         this.generateProviderMocks(allProviders);
 
@@ -170,6 +171,8 @@ class TestGenerator {
         this.generateMethodTests();
 
         this.log(`});`);
+
+        return this.logs.join("\n");
     }
 }
 
@@ -196,7 +199,7 @@ class GuardTestGenerator extends TestGenerator {
     }
 
     generate() {
-        this.generateCompleteTest();
+        return this.generateCompleteTest();
     }
 }
 
@@ -209,7 +212,7 @@ class ServiceTestGenerator extends TestGenerator {
     }
 
     generate() {
-        this.generateCompleteTest([], [], [
+        return this.generateCompleteTest([], [], [
             { provide: this.className, mock: false }
         ]);
     }
@@ -224,7 +227,7 @@ class PipeTestGenerator extends TestGenerator {
     }
 
     generate() {
-        this.generateCompleteTest();
+        return this.generateCompleteTest();
     }
 }
 
