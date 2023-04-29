@@ -89,6 +89,10 @@ export default class TypescriptNodeUtil {
     getConstructorProviders(firstIdentifier) {
         let constructor = firstIdentifier.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Constructor);
 
+        if(constructor == undefined) {
+            return [];
+        }
+        
         let constructorParams = constructor.getAllChildren()
             .filter(ch => ch.indentLevel == constructor.indentLevel + 1 && ch.kind == typescript.SyntaxKind.Parameter);
 

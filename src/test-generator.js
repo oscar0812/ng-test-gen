@@ -1,15 +1,19 @@
 import typescript from 'typescript';
-import FILE_TYPES from './models/ng-file-type.js';
+import VarDeclaration from './models/var-declaration.js';
+import TypescriptNodeUtil from './typescript-node-util.js';
 
 class TestGenerator {
-    constructor(nodeUtil, type) {
-        this.nodeUtil = nodeUtil;
-        this.type = type;
-        this.decorator = nodeUtil.getDecoratorWithIdentifier(nodeUtil.sourceFile, type.decoratorId);
+    constructor(filePath, varName, decoratorId, usesTestBed = true) {
+        this.varName = varName;
+        this.decoratorId = decoratorId;
+        this.usesTestBed = usesTestBed;
+        this.nodeUtil = new TypescriptNodeUtil(filePath);
+
+        this.decorator = this.nodeUtil.getDecoratorWithIdentifier(this.nodeUtil.sourceFile, decoratorId);
         this.classId = this.decorator.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Identifier);
         this.className = this.classId.getText(this.nodeUtil.sourceFile);
-        this.methods = nodeUtil.getMethodDeclarations(this.decorator);
-        this.providers = nodeUtil.getConstructorProviders(this.decorator);
+        this.methods = this.nodeUtil.getMethodDeclarations(this.decorator);
+        this.providers = this.nodeUtil.getConstructorProviders(this.decorator);
         this.providers.forEach(provider => provider.mock = true);
     }
 
@@ -18,8 +22,8 @@ class TestGenerator {
         let spyOns = [];
         let expectations = [];
         callExprs.forEach(callExpr => {
-            let access = callExpr.propertyAccess.replace('this.', this.type.varName + '.');
-            if(access == 'this') access = this.type.varName;
+            let access = callExpr.propertyAccess.replace('this.', this.varName + '.');
+            if (access == 'this') access = this.varName;
             let funCall = `${access}.${callExpr.fun}`;
             let spyOnText = `\tspyOn(${access}, '${callExpr.fun}')`;
             if (callExpr.isSubscription && !callExpr.hasParentCallExpr) {
@@ -37,7 +41,7 @@ class TestGenerator {
             expectations.push('');
         }
         thisAssignments.forEach(assignment => {
-            let access = assignment.propertyAccess.replace('this.', this.type.varName + '.');
+            let access = assignment.propertyAccess.replace('this.', this.varName + '.');
             expectations.push(`\texpect(${access}).toBeUndefined();`);
         });
 
@@ -65,7 +69,7 @@ class TestGenerator {
             this.log(1, `it('should run #${methodId}()', () => {`);
             data.spyOns.forEach(x => this.log(1, `${x}`));
             this.log();
-            this.log(2, `${this.type.varName}.${methodId}();\n`)
+            this.log(2, `${this.varName}.${methodId}();\n`)
             data.expectations.forEach(x => this.log(1, `${x}`));
             this.log(1, `});`);
             this.log();
@@ -84,20 +88,7 @@ class TestGenerator {
         }
     }
 
-    generateCompleteTest(_imports, declarations, extraProviders) {
-        let allProviders = this.providers.concat(extraProviders);
-
-        allProviders.filter(p => p.decorator == undefined && p.mock).forEach(provider => {
-            this.log(`@Injectable()`);
-            this.log(`class Mock${provider.provide} { }\n`);
-        })
-
-        this.log(`describe('${this.className}', () => {`)
-        if (this.type == FILE_TYPES.COMPONENT) {
-            this.log(1, `let fixture: ComponentFixture<${this.className}>;`);
-            this.log(1, `let component;`)
-        }
-        this.log(1, `let ${this.type.varName};\n`);
+    generateTestBedBeforeEach(_imports, declarations, allProviders) {
         this.log(1, `beforeEach(async(() => {`);
         this.log(2, `TestBed.configureTestingModule({`);
         this.log(2, `imports: [${_imports.join(', ')}],`);
@@ -109,14 +100,41 @@ class TestGenerator {
         this.log();
         this.log(2, `}).compileComponents();`);
         this.log(1, `}));`);
+    }
+
+    generateVarAssignmentBeforeEach() {
+        this.log(1, `beforeEach(() => {`);
+        this.varDeclarationList && this.varDeclarationList.forEach(vd => {
+            this.log(2, `${vd.name} = ${vd.value};`);
+        });
+        this.log(1, `});`);
+    }
+
+    generateCompleteTest(_imports, declarations, extraProviders) {
+        let allProviders = this.providers.concat(extraProviders || []);
+
+        allProviders.filter(p => p.decorator == undefined && p.mock).forEach(provider => {
+            this.log(`@Injectable()`);
+            this.log(`class Mock${provider.provide} { }\n`);
+        })
+
+        this.log(`describe('${this.className}', () => {`)
+        this.varDeclarationList && this.varDeclarationList.forEach(vd => {
+            let str = `let ${vd.name}`;
+            if (vd.type) {
+                str += `: ${vd.type}`
+            }
+            str += ';'
+            this.log(1, str);
+        });
         this.log();
 
-        this.log(1, `beforeEach(() => {`);
-        if (this.type == FILE_TYPES.COMPONENT) {
-            this.log(2, `fixture = TestBed.createComponent(${this.className});`);
-            this.log(2, `component = fixture.debugElement.componentInstance;`)
+        if (this.usesTestBed) {
+            this.generateTestBedBeforeEach(_imports, declarations, allProviders);
+            this.log();
         }
-        this.log(1, `});`);
+
+        this.generateVarAssignmentBeforeEach();
         this.log();
 
         this.generateMethodTests();
@@ -126,17 +144,45 @@ class TestGenerator {
 }
 
 class ComponentTestGenerator extends TestGenerator {
-    constructor(nodeUtil) {
-        super(nodeUtil, FILE_TYPES.COMPONENT);
+    constructor(filePath) {
+        super(filePath, 'component', 'Component');
+        this.varDeclarationList = [
+            new VarDeclaration('fixture', `ComponentFixture<${this.className}>`, `TestBed.createComponent(${this.className})`),
+            new VarDeclaration('component', undefined, 'fixture.debugElement.componentInstance')
+        ];
     }
 
     generate() {
-        this.generateCompleteTest(['FormsModule', 'ReactiveFormsModule'],[this.className],[]);
+        this.generateCompleteTest(['FormsModule', 'ReactiveFormsModule'], [this.className], []);
     }
 }
 
 class ServiceTestGenerator extends TestGenerator {
+    constructor(filePath) {
+        super(filePath, 'service', 'Injectable');
+        this.varDeclarationList = [
+            new VarDeclaration('service', undefined, `TestBed.get(${this.className})`)
+        ];
+    }
 
+    generate() {
+        this.generateCompleteTest([], [], [
+            { provide: this.className, mock: false }
+        ]);
+    }
 }
 
-export { ComponentTestGenerator, ServiceTestGenerator };
+class PipeTestGenerator extends TestGenerator {
+    constructor(filePath) {
+        super(filePath, 'pipe', 'Pipe', false);
+        this.varDeclarationList = [
+            new VarDeclaration('pipe', this.className, `new ${this.className}()`)
+        ];
+    }
+
+    generate() {
+        this.generateCompleteTest();
+    }
+}
+
+export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator };
