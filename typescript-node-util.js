@@ -1,14 +1,15 @@
-import fs from 'fs';
 import typescript from 'typescript';
+import fs from 'fs';
+import { Queue } from '@datastructures-js/queue';
+import ERROR_CODES from './errors.js';
 
 export default class TypescriptNodeUtil {
     constructor(filePath) {
         this.nodeList = [];
-        this.nodeMap = [];
         const source = fs.readFileSync(filePath, 'utf-8');
         this.sourceFile = typescript.createSourceFile(filePath, source, typescript.ScriptTarget.Latest);
 
-        this.getNodesRecursively(this.sourceFile, 0, true, false);
+        this.traverseAllNodes(this.sourceFile, true, false);
 
         this.nodeList.forEach(node => {
             node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
@@ -19,31 +20,33 @@ export default class TypescriptNodeUtil {
         })
     }
 
-    getNodesRecursively(node, indentLevel, appendNode = true, printNode = true) {
-        node.indentLevel = indentLevel;
+    traverseAllNodes(node, appendNode = true, printNode = true) {
+        node.indentLevel = 0;
 
-        const key = node.kind;
+        let q = new Queue();
+        q.enqueue(node);
 
-        if (appendNode) {
-            this.nodeList.push(node);
-            if (!(key in this.nodeMap)) {
-                this.nodeMap[key] = [];
+        while (!q.isEmpty()) {
+            node = q.dequeue();
+
+            if (appendNode) {
+                this.nodeList.push(node);
             }
-            this.nodeMap[key].push(node);
-        }
 
-        if (printNode) {
-            console.log(`${node.indentLevel}${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
-        }
+            if (printNode) {
+                console.log(`${node.indentLevel}${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
+            }
 
-        node.forEachChild(child => {
-            child.getParent = () => node;
-            this.getNodesRecursively(child, indentLevel + 1, appendNode, printNode)
-        })
+            node.forEachChild(child => {
+                child.getParent = () => node;
+                child.indentLevel = node.indentLevel + 1;
+                q.enqueue(child);
+            })
+        }
     }
 
     printNode(node) {
-        this.getNodesRecursively(node, 0, false, true);
+        this.traverseAllNodes(node, false, true);
     }
 
     getDecoratorWithIdentifier(node, identifier) {
@@ -56,10 +59,10 @@ export default class TypescriptNodeUtil {
         let decorator = this.getDecoratorWithIdentifier(this.sourceFile, 'Component');
         let identifiers = decorator.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.Identifier);
         if (identifiers.length == 0) {
-            throw `Component Class Identifier not found!`;
+            throw ERROR_CODES.NO_COMPONENT.toString();
         }
         if (identifiers.length > 1) {
-            throw `Only one component per file allowed!`;
+            throw ERROR_CODES.TOO_MANY_COMPONENTS.toString();
         }
         return identifiers[0];
     }
@@ -112,23 +115,16 @@ export default class TypescriptNodeUtil {
 
         if (innerCallExpression != null && isSubscription) {
             // has inner fun call which returns an observable
-            // this.someFunction().subscribe(...)
             return this.parseCallExpression(innerCallExpression, true, true);
         }
 
-        return {
-            propertyAccess,
-            fun,
-            funCall: propertyAccess + '.' + fun,
-            isSubscription,
-            hasParentCallExpr
-        }
+        return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, hasParentCallExpr };
     }
 
     getCallExpressions(parentNode) {
         let callExpressions = parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.CallExpression);
         let parsedCalls = callExpressions.map(callExpression => this.parseCallExpression(callExpression));
-        
+
         // get only unique calls
         let seen = new Set();
         const uniqueCalls = parsedCalls.filter(item => {
