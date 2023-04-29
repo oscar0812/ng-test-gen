@@ -26,18 +26,23 @@ class TestGenerator {
         callExprs.forEach(callExpr => {
             let access = callExpr.propertyAccess.replace('this.', this.varName + '.');
             if (access == 'this') access = this.varName;
+            
             let funCall = `${access}.${callExpr.fun}`;
             let spyOnText = `spyOn(${access}, '${callExpr.fun}')`;
-            if (callExpr.isSubscription && !callExpr.hasParentCallExpr) {
+
+            if (callExpr.isPropertyAccessSubscribe) {
                 spyOnText = `${access} = of({})`;
-            } else if (callExpr.isSubscription && callExpr.hasParentCallExpr) {
+            } else if (callExpr.isCallExpressionSubscribe) {
                 spyOnText += `.and.returnValue(of({}))`;
             } else if (callExpr.usesMethodParam) {
                 spyOnText += `.and.callThrough()`
             }
 
             spyOns.push(spyOnText + `;`);
-            expectations.push(`expect(${funCall}).toHaveBeenCalledWith();`);
+
+            if(!callExpr.isPropertyAccessSubscribe) {
+                expectations.push(`expect(${funCall}).toHaveBeenCalledWith();`);
+            }
         });
 
         let thisAssignments = this.nodeUtil.getThisAssignments(method);

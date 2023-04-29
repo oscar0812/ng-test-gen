@@ -51,6 +51,10 @@ export default class TypescriptNodeUtil {
     }
 
     uniqueByKeepLast(data, key) {
+        var unique = data.forEach((value, index, array) => {
+            console.log(value, index, array)
+        });
+
         return [... new Map(data.map(x => [key(x), x])).values()]
     }
 
@@ -186,8 +190,9 @@ export default class TypescriptNodeUtil {
         }
 
         let propertyAccess = secondLevelChildren[0].getText(this.sourceFile);
-        let hasParentCallExpr = innerCallCount > 0;
-        return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, hasParentCallExpr, validCall: true };
+        let isPropertyAccessSubscribe = isSubscription && fun == 'subscribe';
+        let isCallExpressionSubscribe = isSubscription && fun != 'subscribe';
+        return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, isCallExpressionSubscribe, isPropertyAccessSubscribe, validCall: true };
     }
 
     getMethodParmInitValues(node) {
