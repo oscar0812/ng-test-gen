@@ -2,39 +2,104 @@ import fs from 'fs';
 import typescript from 'typescript';
 
 export default class TypescriptNodeUtil {
-    constructor(file_path) {
+    constructor(filePath) {
         this.nodeList = [];
         this.nodeMap = [];
-        const source = fs.readFileSync(file_path, 'utf-8');
-        this.sourceFile = typescript.createSourceFile(file_path, source, typescript.ScriptTarget.Latest);
+        const source = fs.readFileSync(filePath, 'utf-8');
+        this.sourceFile = typescript.createSourceFile(filePath, source, typescript.ScriptTarget.Latest);
 
-        this.getNodesRecursively(this.sourceFile, 0, this.sourceFile, true, true);
+        this.getNodesRecursively(this.sourceFile, 0, true, true);
 
         this.nodeList.forEach(node => {
-            node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end > n.end);
+            node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
+            let siblings = this.nodeList.filter(n => n.indentLevel == node.indentLevel && n.pos != node.pos);
+            node.getPreviousSiblings = () => siblings.filter(n => n.pos < node.pos)
+            node.getNextSiblings = () => siblings.filter(n => n.end > node.end)
+            node.getPreviousSibling = () => node.getPreviousSiblings()[node.getPreviousSibling.length - 1]
         })
     }
 
-    getNodesRecursively(node, indentLevel, sourceFile, appendNode = true, printNode = true) {
+    getNodesRecursively(node, indentLevel, appendNode = true, printNode = true) {
         node.indentLevel = indentLevel;
-        
+
         const key = node.kind;
-    
-        if(appendNode) {
+
+        if (appendNode) {
             this.nodeList.push(node);
-            if(!(key in this.nodeMap)) {
+            if (!(key in this.nodeMap)) {
                 this.nodeMap[key] = [];
             }
             this.nodeMap[key].push(node);
         }
 
-        if(printNode) {
+        if (printNode) {
             console.log(`${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
         }
-        
+
         node.forEachChild(child => {
-            child.getParent= () => node;
-            this.getNodesRecursively(child, indentLevel + 1, sourceFile, appendNode, printNode)
+            child.getParent = () => node;
+            this.getNodesRecursively(child, indentLevel + 1, appendNode, printNode)
         })
+    }
+
+    printNode(node) {
+        this.getNodesRecursively(node, 0, false, true);
+    }
+
+    getDecoratorWithIdentifier(node, identifier) {
+        return node.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.Decorator).find(dec => {
+            return dec.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier && ch.getText(this.sourceFile) == identifier) != undefined;
+        });
+    }
+
+    getComponentClassIdentifier() {
+        let decorator = this.getDecoratorWithIdentifier(this.sourceFile, 'Component');
+        let identifiers = decorator.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.Identifier);
+        if (identifiers.length == 0) {
+            throw `Component Class Identifier not found!`;
+        }
+        if (identifiers.length > 1) {
+            throw `Only one component per file allowed!`;
+        }
+        return identifiers[0];
+    }
+
+    getMethodDeclarations() {
+        let componentClassIdentifier = this.getComponentClassIdentifier();
+        return componentClassIdentifier.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.MethodDeclaration);
+    }
+
+    // this.var = 'some value'
+    getThisAssignments(parentNode) {
+        return parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.BinaryExpression).map(binExpr => {
+            let immediateChildren = binExpr.getAllChildren().filter(ch => ch.indentLevel == binExpr.indentLevel + 1);
+            let accessExpr = immediateChildren[0];
+            let firstAssgn = immediateChildren[1];
+            let val = immediateChildren[2];
+
+            let thisKeyword = accessExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword);
+
+            if(thisKeyword != undefined && firstAssgn.kind == typescript.SyntaxKind.FirstAssignment && val != undefined) {
+                return { propertyAccess: accessExpr.getText(this.sourceFile), value: val.getText(this.sourceFile) };
+            }
+            return undefined;
+        }).filter(expr => expr != undefined);
+    }
+
+    getConstructorProviders() {
+        let componentClassIdentifier = this.getComponentClassIdentifier();
+        let constructor = componentClassIdentifier.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Constructor);
+
+        return constructor.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.Parameter).map(param => {
+            let injectDec = this.getDecoratorWithIdentifier(param, 'Inject');
+            if (injectDec != undefined) {
+                let id = injectDec.getAllChildren().filter(ch => ch.indentLevel == injectDec.indentLevel + 2).findLast(_ => true);
+                return { provide: id.getText(this.sourceFile), decorator: injectDec }
+            } else {
+                let typeReference = param.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.TypeReference);
+                let id = typeReference.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier);
+                return { provide: id.getText(this.sourceFile) };
+            }
+        });
     }
 }
