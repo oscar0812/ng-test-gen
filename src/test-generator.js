@@ -185,4 +185,19 @@ class PipeTestGenerator extends TestGenerator {
     }
 }
 
-export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator };
+class GuardTestGenerator extends TestGenerator {
+    constructor(filePath) {
+        super(filePath, 'guard', 'Injectable');
+        this.varDeclarationList = [
+            new VarDeclaration('guard', undefined, `TestBed.get(${this.className})`)
+        ];
+    }
+
+    generate() {
+        this.generateCompleteTest([], [], [
+            { provide: this.className, mock: false }
+        ]);
+    }
+}
+
+export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator, GuardTestGenerator };
