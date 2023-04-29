@@ -27,12 +27,7 @@ export class AppComponent implements OnInit {
   ) { }
 
   public testIt(param) {
-    this.somesub.var.subscribe(a => a);
-    this.somesub.func().subscribe(a => a);
-    this.platform.hello();
-    this.platform.hello();
-    this.storage.no();
-    this.userService.signIn();
-    return;
+    let a = this.platform.filter(a => a)
+    return data;
   }
 };

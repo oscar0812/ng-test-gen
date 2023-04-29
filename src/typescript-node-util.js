@@ -64,8 +64,17 @@ export default class TypescriptNodeUtil {
         });
     }
 
-    getMethodDeclarations(decorator) {
-        return decorator.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.MethodDeclaration);
+    getClassDeclaration() {
+        return this.sourceFile.getAllChildren().find(n => n.kind == typescript.SyntaxKind.ClassDeclaration);
+    }
+
+    getClassId(classDeclaration) {
+        return classDeclaration.getAllChildren().find(n => n.indentLevel == classDeclaration.indentLevel + 1 && n.kind == typescript.SyntaxKind.Identifier);
+    }
+
+    getMethodDeclarations(classDeclaration) {
+        this.printNode(classDeclaration)
+        return classDeclaration.getAllChildren().filter(n => n.indentLevel == classDeclaration.indentLevel + 1 && n.kind == typescript.SyntaxKind.MethodDeclaration);
     }
 
     // this.var = 'some value'
@@ -88,7 +97,7 @@ export default class TypescriptNodeUtil {
     }
 
     getConstructorProviders(firstIdentifier) {
-        let constructor = firstIdentifier.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Constructor);
+        let constructor = firstIdentifier.getAllChildren().find(n => n.kind == typescript.SyntaxKind.Constructor);
 
         if (constructor == undefined) {
             return [];

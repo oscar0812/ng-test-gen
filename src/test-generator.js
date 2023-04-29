@@ -11,11 +11,13 @@ class TestGenerator {
         this.usesTestBed = usesTestBed;
         this.nodeUtil = new TypescriptNodeUtil(filePath);
 
-        this.decorator = this.nodeUtil.getDecoratorWithIdentifier(this.nodeUtil.sourceFile, decoratorId);
-        this.classId = this.decorator.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Identifier);
+        let classDeclaration = this.nodeUtil.getClassDeclaration();
+        this.decorator = this.nodeUtil.getDecoratorWithIdentifier(classDeclaration, decoratorId);
+        this.classId = this.nodeUtil.getClassId(classDeclaration);
+        this.nodeUtil.printNode(this.classId);
         this.className = this.classId.getText(this.nodeUtil.sourceFile);
-        this.methods = this.nodeUtil.getMethodDeclarations(this.decorator);
-        this.providers = this.nodeUtil.getConstructorProvidersInfo(this.decorator);
+        this.methods = this.nodeUtil.getMethodDeclarations(classDeclaration);
+        this.providers = this.nodeUtil.getConstructorProvidersInfo(classDeclaration);
         this.providers.forEach(provider => provider.mock = true);
     }
 
@@ -241,6 +243,17 @@ class PipeTestGenerator extends TestGenerator {
     }
 }
 
+class ClassTestGenerator extends TestGenerator {
+    constructor(filePath) {
+        super(filePath, 'obj', undefined, false);
+        this.varDeclarationList = [
+            new VarDeclaration('obj', this.className, `new ${this.className}()`)
+        ];
+    }
 
+    generate() {
+        return this.generateCompleteTest();
+    }
+}
 
-export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator, GuardTestGenerator };
+export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator, GuardTestGenerator, ClassTestGenerator };
