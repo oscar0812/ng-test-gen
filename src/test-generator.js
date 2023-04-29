@@ -1,6 +1,7 @@
 import typescript from 'typescript';
 import VarDeclaration from './models/var-declaration.js';
 import TypescriptNodeUtil from './typescript-node-util.js';
+import CONFIG from '../config.js';
 
 class TestGenerator {
     constructor(filePath, varName, decoratorId, usesTestBed = true) {
@@ -13,27 +14,29 @@ class TestGenerator {
         this.classId = this.decorator.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Identifier);
         this.className = this.classId.getText(this.nodeUtil.sourceFile);
         this.methods = this.nodeUtil.getMethodDeclarations(this.decorator);
-        this.providers = this.nodeUtil.getConstructorProviders(this.decorator);
+        this.providers = this.nodeUtil.getConstructorProvidersInfo(this.decorator);
         this.providers.forEach(provider => provider.mock = true);
     }
 
     generateSpyOnsAndExpectations(method) {
-        let callExprs = this.nodeUtil.getCallExpressions(method);
+        let callExprs = this.nodeUtil.getCallExpressionsInMethod(method);
         let spyOns = [];
         let expectations = [];
         callExprs.forEach(callExpr => {
             let access = callExpr.propertyAccess.replace('this.', this.varName + '.');
             if (access == 'this') access = this.varName;
             let funCall = `${access}.${callExpr.fun}`;
-            let spyOnText = `\tspyOn(${access}, '${callExpr.fun}')`;
+            let spyOnText = `spyOn(${access}, '${callExpr.fun}')`;
             if (callExpr.isSubscription && !callExpr.hasParentCallExpr) {
-                spyOnText = `\t${funCall} = of({})`;
+                spyOnText = `${funCall} = of({})`;
             } else if (callExpr.isSubscription && callExpr.hasParentCallExpr) {
                 spyOnText += `.and.returnValue(of({}))`;
+            } else if (callExpr.usesMethodParam) {
+                spyOnText += `.and.callThrough()`
             }
 
             spyOns.push(spyOnText + `;`);
-            expectations.push(`\texpect(${funCall}).toHaveBeenCalledWith();`);
+            expectations.push(`expect(${funCall}).toHaveBeenCalledWith();`);
         });
 
         let thisAssignments = this.nodeUtil.getThisAssignments(method);
@@ -42,35 +45,45 @@ class TestGenerator {
         }
         thisAssignments.forEach(assignment => {
             let access = assignment.propertyAccess.replace('this.', this.varName + '.');
-            expectations.push(`\texpect(${access}).toBeUndefined();`);
+            expectations.push(`expect(${access}).toBeUndefined();`);
         });
 
         return { spyOns, expectations };
     }
 
-    log(tabNum, text) {
-        if (tabNum == undefined && text == undefined) {
+    log(indentNum, text) {
+        if (indentNum == undefined && text == undefined) {
             console.log();
         }
         else {
-            if (tabNum != undefined && text == undefined) {
-                text = tabNum;
-                tabNum = 0;
+            if (indentNum != undefined && text == undefined) {
+                text = indentNum;
+                indentNum = 0;
             }
-            console.log(`${'\t'.repeat(tabNum)}${text}`);
+            console.log(`${CONFIG.format.indentWith.repeat(indentNum)}${text}`);
         }
+    }
+
+    generateConstructorTest() {
+        this.log(1, `it('should run #constructor()', () => {`);
+        this.varDeclarationList && this.varDeclarationList.forEach(vd => {
+            this.log(2, `expect(${vd.name}).toBeTruthy();`);
+        });
+        this.log(1, `});`);
     }
 
     generateMethodTests() {
         this.methods.forEach(method => {
             let methodId = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier).getText(this.nodeUtil.sourceFile);
+            let paramValues = this.nodeUtil.getMethodParmInitValues(method);
             let data = this.generateSpyOnsAndExpectations(method);
 
             this.log(1, `it('should run #${methodId}()', () => {`);
-            data.spyOns.forEach(x => this.log(1, `${x}`));
+            paramValues.forEach(pv => this.log(2, `let ${pv.name} = ${JSON.stringify(pv.value)};`))
+            data.spyOns.forEach(x => this.log(2, `${x}`));
             this.log();
-            this.log(2, `${this.varName}.${methodId}();\n`)
-            data.expectations.forEach(x => this.log(1, `${x}`));
+            this.log(2, `${this.varName}.${methodId}(${paramValues.map(pv => pv.name).join(', ')});\n`)
+            data.expectations.forEach(x => this.log(2, `${x}`));
             this.log(1, `});`);
             this.log();
         });
@@ -110,13 +123,23 @@ class TestGenerator {
         this.log(1, `});`);
     }
 
-    generateCompleteTest(_imports, declarations, extraProviders) {
-        let allProviders = this.providers.concat(extraProviders || []);
-
+    generateProviderMocks(allProviders) {
         allProviders.filter(p => p.decorator == undefined && p.mock).forEach(provider => {
             this.log(`@Injectable()`);
-            this.log(`class Mock${provider.provide} { }\n`);
+            if (provider.methodIds && provider.methodIds.length > 0) {
+                this.log(0, `class Mock${provider.provide} {`);
+                provider.methodIds.forEach(m => this.log(1, `${m}() { }`));
+                this.log(0, `}`);
+            } else {
+                this.log(0, `class Mock${provider.provide} { }`);
+            }
+            this.log();
         })
+    }
+
+    generateCompleteTest(_imports, declarations, extraProviders) {
+        let allProviders = this.providers.concat(extraProviders || []);
+        this.generateProviderMocks(allProviders);
 
         this.log(`describe('${this.className}', () => {`)
         this.varDeclarationList && this.varDeclarationList.forEach(vd => {
@@ -137,6 +160,9 @@ class TestGenerator {
         this.generateVarAssignmentBeforeEach();
         this.log();
 
+        this.generateConstructorTest();
+        this.log();
+
         this.generateMethodTests();
 
         this.log(`});`);
@@ -148,7 +174,7 @@ class ComponentTestGenerator extends TestGenerator {
         super(filePath, 'component', 'Component');
         this.varDeclarationList = [
             new VarDeclaration('fixture', `ComponentFixture<${this.className}>`, `TestBed.createComponent(${this.className})`),
-            new VarDeclaration('component', undefined, 'fixture.debugElement.componentInstance')
+            new VarDeclaration('component', this.className, 'fixture.debugElement.componentInstance')
         ];
     }
 
