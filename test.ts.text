@@ -35,9 +35,12 @@ export class AppComponent implements OnInit {
       document.body.classList.add('dark');
     }
     this.userService.user$.subscribe(user => this.user = user);
+    this.userService.getSomeSubFunction().subscribe(user => this.var5 = var6);
     this.checkServer();
 
     this.var = 'some value';
     this.var1.var2.var3 = this.var4;
+
+    let user = sessionStorage.getItem('user')
   }
 };

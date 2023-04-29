@@ -8,7 +8,7 @@ export default class TypescriptNodeUtil {
         const source = fs.readFileSync(filePath, 'utf-8');
         this.sourceFile = typescript.createSourceFile(filePath, source, typescript.ScriptTarget.Latest);
 
-        this.getNodesRecursively(this.sourceFile, 0, true, true);
+        this.getNodesRecursively(this.sourceFile, 0, true, false);
 
         this.nodeList.forEach(node => {
             node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
@@ -33,7 +33,7 @@ export default class TypescriptNodeUtil {
         }
 
         if (printNode) {
-            console.log(`${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
+            console.log(`${node.indentLevel}${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
         }
 
         node.forEachChild(child => {
@@ -79,7 +79,7 @@ export default class TypescriptNodeUtil {
 
             let thisKeyword = accessExpr.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword);
 
-            if(thisKeyword != undefined && firstAssgn.kind == typescript.SyntaxKind.FirstAssignment && val != undefined) {
+            if (thisKeyword != undefined && firstAssgn.kind == typescript.SyntaxKind.FirstAssignment && val != undefined) {
                 return { propertyAccess: accessExpr.getText(this.sourceFile), value: val.getText(this.sourceFile) };
             }
             return undefined;
@@ -101,5 +101,41 @@ export default class TypescriptNodeUtil {
                 return { provide: id.getText(this.sourceFile) };
             }
         });
+    }
+
+    parseCallExpression(callExpression, previousWasSubscription = false, hasParentCallExpr = false) {
+        let secondLevelChildren = callExpression.getAllChildren().filter(ch => ch.indentLevel == callExpression.indentLevel + 2);
+        let innerCallExpression = callExpression.getAllChildren().find(ch => ch.indentLevel > callExpression.indentLevel && ch.kind == typescript.SyntaxKind.CallExpression);
+        let propertyAccess = secondLevelChildren[0].getText(this.sourceFile);
+        let fun = secondLevelChildren[1].getText(this.sourceFile);
+        let isSubscription = previousWasSubscription || fun == 'subscribe';
+
+        if (innerCallExpression != null && isSubscription) {
+            // has inner fun call which returns an observable
+            // this.someFunction().subscribe(...)
+            return this.parseCallExpression(innerCallExpression, true, true);
+        }
+
+        return {
+            propertyAccess,
+            fun,
+            funCall: propertyAccess + '.' + fun,
+            isSubscription,
+            hasParentCallExpr
+        }
+    }
+
+    getCallExpressions(parentNode) {
+        let callExpressions = parentNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.CallExpression);
+        let parsedCalls = callExpressions.map(callExpression => this.parseCallExpression(callExpression));
+        
+        // get only unique calls
+        let seen = new Set();
+        const uniqueCalls = parsedCalls.filter(item => {
+            const duplicate = seen.has(item.funCall);
+            seen.add(item.funCall);
+            return !duplicate;
+        });
+        return uniqueCalls;
     }
 }
