@@ -195,6 +195,15 @@ export default class TypescriptNodeUtil {
         return { propertyAccess, fun, funCall: propertyAccess + '.' + fun, isSubscription, isCallExpressionSubscribe, isPropertyAccessSubscribe, validCall: true };
     }
 
+    hasValidReturnStatement(methodNode) {
+        // invalid: return;
+        // valid: return something;
+        let returnStatementsWithChildren = methodNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.ReturnStatement)
+            .filter(statement => statement.getAllChildren().filter(ch => ch.indentLevel > statement.indentLevel).length > 0);
+
+        return returnStatementsWithChildren.length > 0;
+    }
+
     getMethodParmInitValues(node) {
         return node.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.Parameter && ch.indentLevel == node.indentLevel + 1).map(param => {
             let id = param.getAllChildren().find(ch2 => ch2.kind == typescript.SyntaxKind.Identifier);

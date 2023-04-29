@@ -83,7 +83,7 @@ class TestGenerator {
 
     generateMethodTests() {
         this.methods.forEach(method => {
-            let resultVal = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ReturnStatement) ? 'result' : undefined;
+            let resultVal = this.nodeUtil.hasValidReturnStatement(method) ? 'result': undefined;
             let methodId = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier).getText(this.nodeUtil.sourceFile);
             let paramValues = this.nodeUtil.getMethodParmInitValues(method);
             let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal);

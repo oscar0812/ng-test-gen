@@ -33,6 +33,6 @@ export class AppComponent implements OnInit {
     this.platform.hello();
     this.storage.no();
     this.userService.signIn();
-    return data;
+    return;
   }
 };
