@@ -28,4 +28,4 @@ switch (fileType) {
         break;
 }
 
-testGenerator.getText();
+testGenerator.generate();
