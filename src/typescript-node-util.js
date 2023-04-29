@@ -1,7 +1,7 @@
 import fs from 'fs';
 import typescript from 'typescript';
 import { Queue } from 'datastructures-js';
-import ERROR_CODES from './errors.js';
+import ERROR_CODES from './models/errors.js';
 
 export default class TypescriptNodeUtil {
     constructor(filePath) {
@@ -64,9 +64,8 @@ export default class TypescriptNodeUtil {
         return identifiers[0];
     }
 
-    getMethodDeclarations() {
-        let componentClassIdentifier = this.getComponentClassIdentifier();
-        return componentClassIdentifier.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.MethodDeclaration);
+    getMethodDeclarations(decorator) {
+        return decorator.getNextSiblings().filter(n => n.kind == typescript.SyntaxKind.MethodDeclaration);
     }
 
     // this.var = 'some value'
@@ -86,9 +85,8 @@ export default class TypescriptNodeUtil {
         }).filter(expr => expr != undefined);
     }
 
-    getConstructorProviders() {
-        let componentClassIdentifier = this.getComponentClassIdentifier();
-        let constructor = componentClassIdentifier.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Constructor);
+    getConstructorProviders(firstIdentifier) {
+        let constructor = firstIdentifier.getNextSiblings().find(n => n.kind == typescript.SyntaxKind.Constructor);
 
         return constructor.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.Parameter).map(param => {
             let injectDec = this.getDecoratorWithIdentifier(param, 'Inject');
