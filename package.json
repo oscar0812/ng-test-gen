@@ -11,7 +11,7 @@
   "author": "Oscar Torres",
   "license": "MIT",
   "dependencies": {
-    "@datastructures-js/queue": "^4.2.3",
+    "datastructures-js": "^12.0.0",
     "typescript": "^5.0.3"
   }
 }
