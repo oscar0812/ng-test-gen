@@ -1,6 +1,5 @@
-import typescript from 'typescript';
 import fs from 'fs';
-import { Queue } from '@datastructures-js/queue';
+import typescript from 'typescript';
 import ERROR_CODES from './errors.js';
 
 export default class TypescriptNodeUtil {
@@ -9,7 +8,7 @@ export default class TypescriptNodeUtil {
         const source = fs.readFileSync(filePath, 'utf-8');
         this.sourceFile = typescript.createSourceFile(filePath, source, typescript.ScriptTarget.Latest);
 
-        this.traverseAllNodes(this.sourceFile, true, false);
+        this.getNodesRecursively(this.sourceFile, 0, true, false);
 
         this.nodeList.forEach(node => {
             node.getAllChildren = () => this.nodeList.filter(n => node.pos <= n.pos && node.end >= n.end);
@@ -20,33 +19,25 @@ export default class TypescriptNodeUtil {
         })
     }
 
-    traverseAllNodes(node, appendNode = true, printNode = true) {
-        node.indentLevel = 0;
+    getNodesRecursively(node, indentLevel, appendNode = true, printNode = true) {
+        node.indentLevel = indentLevel;
 
-        let q = new Queue();
-        q.enqueue(node);
-
-        while (!q.isEmpty()) {
-            node = q.dequeue();
-
-            if (appendNode) {
-                this.nodeList.push(node);
-            }
-
-            if (printNode) {
-                console.log(`${node.indentLevel}${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
-            }
-
-            node.forEachChild(child => {
-                child.getParent = () => node;
-                child.indentLevel = node.indentLevel + 1;
-                q.enqueue(child);
-            })
+        if (appendNode) {
+            this.nodeList.push(node);
         }
+
+        if (printNode) {
+            console.log(`${node.indentLevel}${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
+        }
+
+        node.forEachChild(child => {
+            child.getParent = () => node;
+            this.getNodesRecursively(child, indentLevel + 1, appendNode, printNode)
+        })
     }
 
     printNode(node) {
-        this.traverseAllNodes(node, false, true);
+        this.getNodesRecursively(node, 0, false, true);
     }
 
     getDecoratorWithIdentifier(node, identifier) {
