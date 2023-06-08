@@ -1,4 +1,5 @@
-import { ComponentTestGenerator, GuardTestGenerator, PipeTestGenerator, ServiceTestGenerator, ClassTestGenerator } from "../test-generator.js";
+import { ComponentTestGenerator, GuardTestGenerator, 
+    PipeTestGenerator, ServiceTestGenerator, ClassTestGenerator, DirectiveTestGenerator } from "../test-generator.js";
 
 class NgFile {
     constructor(extension, generator) {
@@ -12,6 +13,7 @@ let NG_FILE_INFO = [
     new NgFile('.service.ts', ServiceTestGenerator),
     new NgFile('.pipe.ts', PipeTestGenerator),
     new NgFile('.guard.ts', GuardTestGenerator),
+    new NgFile('.directive.ts', DirectiveTestGenerator),
     new NgFile('.ts', ClassTestGenerator)
 ]
 

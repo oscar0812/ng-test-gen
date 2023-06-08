@@ -62,4 +62,17 @@ export class AppComponent implements OnInit {
         somefun()
         return data;
     }
+
+    public testArrowFunction = event => {
+        let a = this.platform.somethingelse(a => a)
+
+        somefun()
+    }
+
+    @HostListener
+    public testArrowFunctionWithDecorator = event1 => {
+        let a = this.platform.somethingelse(a => a)
+
+        somefun()
+    }
 };

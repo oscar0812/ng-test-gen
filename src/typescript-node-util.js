@@ -81,7 +81,16 @@ export default class TypescriptNodeUtil {
     }
 
     getMethodDeclarations(classDeclaration) {
-        return classDeclaration.getAllChildren().filter(n => n.indentLevel == classDeclaration.indentLevel + 1 && n.kind == typescript.SyntaxKind.MethodDeclaration);
+        let firstChildren = classDeclaration.getAllChildren().filter(n => n.indentLevel == classDeclaration.indentLevel + 1);
+        let normalMethods = firstChildren.filter(n => n.kind == typescript.SyntaxKind.MethodDeclaration);
+        let arrowMethods = firstChildren.filter(n => n.kind == typescript.SyntaxKind.PropertyDeclaration).filter(prop => {
+            return prop.getAllChildren().find(n => n.indentLevel == prop.indentLevel + 1 && n.kind == typescript.SyntaxKind.ArrowFunction) != undefined;
+        });
+        return [...normalMethods, ...arrowMethods].sort((a, b) => (a.pos > b.pos) ? 1 : -1);
+    }
+
+    getMethodId(method) {
+        return method.getAllChildren().find(ch => ch.indentLevel == method.indentLevel + 1 && ch.kind == typescript.SyntaxKind.Identifier).getText(this.sourceFile);
     }
 
     // this.var = 'some value'
@@ -127,7 +136,8 @@ export default class TypescriptNodeUtil {
             let injectDec = this.getDecoratorWithIdentifier(param, 'Inject');
             let varId = param.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier && ch.indentLevel == param.indentLevel + 1).getText(this.sourceFile);
             if (injectDec != undefined) {
-                let idInsideDec = injectDec.getAllChildren().filter(ch => ch.indentLevel == injectDec.indentLevel + 2).findLast(_ => true).getText(this.sourceFile);
+                let ids = injectDec.getAllChildren().filter(ch => ch.indentLevel == injectDec.indentLevel + 2);
+                let idInsideDec = ids[ids.length - 1].getText(this.sourceFile);
                 return new Provider(idInsideDec, injectDec, varId);
             } else {
                 let typeReference = param.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.TypeReference);
@@ -214,10 +224,18 @@ export default class TypescriptNodeUtil {
     }
 
     getMethodParmInitValues(node) {
-        return node.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.Parameter && ch.indentLevel == node.indentLevel + 1).map(param => {
-            let id = param.getAllChildren().find(ch2 => ch2.kind == typescript.SyntaxKind.Identifier);
-            return new VarDeclaration(id.getText(this.sourceFile), undefined, {});
-        });
+        let fun = node;
+        if (node.kind == typescript.SyntaxKind.PropertyDeclaration) {
+            // special case: arrow methods have params as part of the arrow function
+            fun = node.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.ArrowFunction)
+        }
+
+        return fun.getAllChildren()
+            .filter(ch => ch.kind == typescript.SyntaxKind.Parameter && ch.indentLevel == fun.indentLevel + 1)
+            .map(param => {
+                let id = param.getAllChildren().find(ch2 => ch2.kind == typescript.SyntaxKind.Identifier);
+                return new VarDeclaration(id.getText(this.sourceFile), undefined, {});
+            });
     }
 
     getCallExpressionsInMethod(methodNode) {

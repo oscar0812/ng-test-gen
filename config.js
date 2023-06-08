@@ -1,6 +1,7 @@
 import typescript from 'typescript';
 
 const CONFIG = {
+    encapsulateTestsInDescribe: true,
     includeCalls: ['sessionStorage'],
     spyOn: {
         methodParams: true,

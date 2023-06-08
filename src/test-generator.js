@@ -79,29 +79,44 @@ class TestGenerator {
     }
 
     generateConstructorTest() {
-        this.log(1, `it('should run #constructor()', () => {`);
+        this.log(1, `it('should create', () => {`);
         this.varDeclarationList && this.varDeclarationList.forEach(vd => {
             this.log(2, `expect(${vd.name}).toBeTruthy();`);
         });
         this.log(1, `});`);
     }
 
-    generateMethodTests() {
+    generateItTest(methodId, paramValues, spysAndExp, resultVal, padding = 0) {
+        this.log(1 + padding, `it('should run #${methodId}()', () => {`);
+        paramValues.forEach(pv => this.log(2 + padding, `let ${pv.name}: any = ${JSON.stringify(pv.value)};`))
+        spysAndExp.spyOns.forEach(x => this.log(2 + padding, `${x}`));
+        this.log();
+        let assignment = resultVal ? 'let ' + resultVal + ' = ' : ''; // let result =
+        this.log(2 + padding, `${assignment}${this.varName}.${methodId}(${paramValues.map(pv => pv.name).join(', ')});\n`)
+        spysAndExp.expectations.forEach(x => this.log(2 + padding, `${x}`));
+        this.log(1 + padding, `});`);
+        this.log();
+    }
+
+    generateItTestWithDescribe(methodId, paramValues, spysAndExp, resultVal) {
+        this.log(1, `describe('should run #${methodId}()', () => {`);
+        this.generateItTest(methodId, paramValues, spysAndExp, resultVal, 1)
+        this.log(1, `});`);
+        this.log();
+    }
+
+    generateAllMethodTests() {
         this.methods.forEach(method => {
             let resultVal = this.nodeUtil.hasValidReturnStatement(method) ? 'result' : undefined;
-            let methodId = method.getAllChildren().find(ch => ch.kind == typescript.SyntaxKind.Identifier).getText(this.nodeUtil.sourceFile);
+            let methodId = this.nodeUtil.getMethodId(method);
             let paramValues = this.nodeUtil.getMethodParmInitValues(method);
             let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal, paramValues);
 
-            this.log(1, `it('should run #${methodId}()', () => {`);
-            paramValues.forEach(pv => this.log(2, `let ${pv.name}: any = ${JSON.stringify(pv.value)};`))
-            spysAndExp.spyOns.forEach(x => this.log(2, `${x}`));
-            this.log();
-            let assignment = resultVal ? 'let ' + resultVal + ' = ' : ''; // let result =
-            this.log(2, `${assignment}${this.varName}.${methodId}(${paramValues.map(pv => pv.name).join(', ')});\n`)
-            spysAndExp.expectations.forEach(x => this.log(2, `${x}`));
-            this.log(1, `});`);
-            this.log();
+            if(CONFIG.encapsulateTestsInDescribe === true) {
+                this.generateItTestWithDescribe(methodId, paramValues, spysAndExp, resultVal);
+            } else {
+                this.generateItTest(methodId, paramValues, spysAndExp, resultVal);
+            }
         });
     }
 
@@ -118,7 +133,7 @@ class TestGenerator {
     }
 
     generateTestBedBeforeEach(_imports, declarations, allProviders) {
-        this.log(1, `beforeEach(async(() => {`);
+        this.log(1, `beforeEach(waitForAsync(() => {`);
         this.log(2, `TestBed.configureTestingModule({`);
         this.log(3, `imports: [${_imports.join(', ')}],`);
         this.log(3, `declarations: [${declarations.join(', ')}],`);
@@ -157,7 +172,7 @@ class TestGenerator {
         })
     }
 
-    generateCompleteTest(_imports, declarations, extraProviders) {
+    generateCompleteTest(_imports, declarations, extraProviders, generateMethodTests = true) {
         _imports = _imports || [];
         declarations = declarations || [];
         extraProviders = extraProviders || [];
@@ -187,7 +202,9 @@ class TestGenerator {
         this.generateConstructorTest();
         this.log();
 
-        this.generateMethodTests();
+        if(generateMethodTests) {
+            this.generateAllMethodTests();
+        }
 
         this.log(`});`);
 
@@ -204,8 +221,8 @@ class ComponentTestGenerator extends TestGenerator {
         ];
     }
 
-    generate() {
-        return this.generateCompleteTest(['FormsModule', 'ReactiveFormsModule'], [this.className], []);
+    generate(generateMethodTests = true) {
+        return this.generateCompleteTest(['FormsModule', 'ReactiveFormsModule'], [this.className], [], generateMethodTests);
     }
 }
 
@@ -217,8 +234,8 @@ class GuardTestGenerator extends TestGenerator {
         ];
     }
 
-    generate() {
-        return this.generateCompleteTest();
+    generate(generateMethodTests = true) {
+        return this.generateCompleteTest([], [], [], generateMethodTests);
     }
 }
 
@@ -230,10 +247,8 @@ class ServiceTestGenerator extends TestGenerator {
         ];
     }
 
-    generate() {
-        return this.generateCompleteTest([], [], [
-            { provide: this.className, mock: false }
-        ]);
+    generate(generateMethodTests = true) {
+        return this.generateCompleteTest([], [], [{ provide: this.className, mock: false }], generateMethodTests);
     }
 }
 
@@ -245,8 +260,21 @@ class PipeTestGenerator extends TestGenerator {
         ];
     }
 
-    generate() {
-        return this.generateCompleteTest();
+    generate(generateMethodTests = true) {
+        return this.generateCompleteTest([], [], [], generateMethodTests);
+    }
+}
+
+class DirectiveTestGenerator extends TestGenerator {
+    constructor(filePath) {
+        super(filePath, 'directive', 'Directive', false);
+        this.varDeclarationList = [
+            new VarDeclaration('directive', this.className, `new ${this.className}()`)
+        ];
+    }
+
+    generate(generateMethodTests = true) {
+        return this.generateCompleteTest([], [], [], generateMethodTests);
     }
 }
 
@@ -258,9 +286,9 @@ class ClassTestGenerator extends TestGenerator {
         ];
     }
 
-    generate() {
-        return this.generateCompleteTest();
+    generate(generateMethodTests = true) {
+        return this.generateCompleteTest([], [], [], generateMethodTests);
     }
 }
 
-export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator, GuardTestGenerator, ClassTestGenerator };
+export { ComponentTestGenerator, ServiceTestGenerator, PipeTestGenerator, GuardTestGenerator, ClassTestGenerator, DirectiveTestGenerator };
