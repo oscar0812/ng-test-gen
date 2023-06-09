@@ -112,7 +112,7 @@ class TestGenerator {
             let paramValues = this.nodeUtil.getMethodParmInitValues(method);
             let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal, paramValues);
 
-            if(CONFIG.encapsulateTestsInDescribe === true) {
+            if (CONFIG.encapsulateTestsInDescribe === true) {
                 this.generateItTestWithDescribe(methodId, paramValues, spysAndExp, resultVal);
             } else {
                 this.generateItTest(methodId, paramValues, spysAndExp, resultVal);
@@ -144,9 +144,13 @@ class TestGenerator {
         this.log(providersStr);
         this.log(3, `]`)
 
-        this.log(2, `}).overrideComponent(${this.className}, {`);
-        this.log();
-        this.log(2, `}).compileComponents();`);
+        if (this.decoratorId == 'Component') {
+            this.log(2, `}).overrideComponent(${this.className}, {`);
+            this.log();
+            this.log(2, `}).compileComponents();`);
+        } else {
+            this.log(2, `});`);
+        }
         this.log(1, `}));`);
     }
 
@@ -202,7 +206,7 @@ class TestGenerator {
         this.generateConstructorTest();
         this.log();
 
-        if(generateMethodTests) {
+        if (generateMethodTests) {
             this.generateAllMethodTests();
         }
 
@@ -230,7 +234,7 @@ class GuardTestGenerator extends TestGenerator {
     constructor(filePath) {
         super(filePath, 'guard', 'Injectable');
         this.varDeclarationList = [
-            new VarDeclaration('guard', undefined, `TestBed.get(${this.className}) as any`)
+            new VarDeclaration('guard', undefined, `TestBed.inject(${this.className}) as any`)
         ];
     }
 
@@ -243,7 +247,7 @@ class ServiceTestGenerator extends TestGenerator {
     constructor(filePath) {
         super(filePath, 'service', 'Injectable');
         this.varDeclarationList = [
-            new VarDeclaration('service', undefined, `TestBed.get(${this.className}) as any`)
+            new VarDeclaration('service', undefined, `TestBed.inject(${this.className}) as any`)
         ];
     }
 
