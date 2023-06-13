@@ -11,7 +11,7 @@ const CONFIG = {
         indentWith: '  '
     },
     ignoreKind: [typescript.SyntaxKind.QuestionDotToken],
-    ignoreFunctions: ['filter', 'map', 'forEach']
+    ignoreFunctions: ['filter', 'map', 'forEach', 'some']
 };
 
 export default CONFIG;

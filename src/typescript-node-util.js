@@ -23,6 +23,8 @@ export default class TypescriptNodeUtil {
             node.getPreviousSiblings = () => siblings.filter(n => n.pos < node.pos)
             node.getNextSiblings = () => siblings.filter(n => n.end > node.end)
         });
+
+        // this.printNode(this.nodeList[0]);
     }
 
     traverseAllNodes(node) {
@@ -45,7 +47,6 @@ export default class TypescriptNodeUtil {
         console.log(`${node.indentLevel}${"-".repeat(node.indentLevel)}(${node.kind})${typescript.SyntaxKind[node.kind]}: ${node.getText(this.sourceFile)}`)
 
         node.forEachChild(child => {
-            child.getParent = () => node;
             this.printNode(child);
         })
     }
@@ -59,6 +60,15 @@ export default class TypescriptNodeUtil {
         });
 
         return uniqueCalls;
+    }
+
+    getFirstAncestor(node, ancestorKind, minIndentLevel = 0) {
+        let currentNode = node.getFirstParent();
+        while(currentNode && currentNode.indentLevel >= minIndentLevel && currentNode.kind != ancestorKind) {
+            currentNode = currentNode.getFirstParent();
+        }
+        
+        return currentNode.kind == ancestorKind ? currentNode : undefined;
     }
 
     getIdentifiers(node) {
@@ -86,7 +96,8 @@ export default class TypescriptNodeUtil {
         let arrowMethods = firstChildren.filter(n => n.kind == typescript.SyntaxKind.PropertyDeclaration).filter(prop => {
             return prop.getAllChildren().find(n => n.indentLevel == prop.indentLevel + 1 && n.kind == typescript.SyntaxKind.ArrowFunction) != undefined;
         });
-        return [...normalMethods, ...arrowMethods].sort((a, b) => (a.pos > b.pos) ? 1 : -1);
+        let accessors = firstChildren.filter(n => n.kind == typescript.SyntaxKind.GetAccessor || n.kind == typescript.SyntaxKind.SetAccessor);
+        return [...normalMethods, ...arrowMethods, ...accessors].sort((a, b) => (a.pos > b.pos) ? 1 : -1);
     }
 
     getMethodId(method) {
@@ -218,7 +229,7 @@ export default class TypescriptNodeUtil {
         // invalid: return;
         // valid: return something;
         let returnStatementsWithChildren = methodNode.getAllChildren().filter(ch => ch.kind == typescript.SyntaxKind.ReturnStatement)
-            .filter(statement => statement.hasChild());
+            .filter(statement => statement.hasChild()).filter(ret => this.getFirstAncestor(ret, typescript.SyntaxKind.CallExpression, 2) == undefined);
 
         return returnStatementsWithChildren.length > 0;
     }

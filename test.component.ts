@@ -24,55 +24,86 @@ export class AppComponent implements OnInit {
         private http: HttpClient,
         @Inject(MAT_DIALOG_DATA) private data: any,
         @Inject('STRING_STR') private data: any;
-    ) { }
-
-    public async testMethod(key: string, value: any) {
-        await this.ionStorage?.set(key, value);
-        await this.ionStorage?.also?.set(key, value);
-        await this.var.func();
-    }
-
-    public testSubscribe1() {
-        this.sub1.subscribe(data => {
+    ) {
+        this.router.events.subscribe(data => {
 
         })
-
-        this.subb1.subb2.subb3(param1).subscribe(data => {
-
-        });
     }
 
-    public testSubscribe2() {
-        this.a.b.c().subscribe((params) => {
-            this.testSubscribe.somefun(1).subscribe((res) => {
-                this.fun();
-            })
+    // public async testMethod(key: string, value: any) {
+    //     await this.ionStorage?.set(key, value);
+    //     await this.ionStorage?.also?.set(key, value);
+    //     await this.var.func();
+    // }
+
+    // public testSubscribe1() {
+    //     this.sub1.subscribe(data => {
+
+    //     })
+
+    //     this.subb1.subb2.subb3(param1).subscribe(data => {
+
+    //     });
+    // }
+
+    // public testSubscribe2() {
+    //     this.a.b.c().subscribe((params) => {
+    //         this.testSubscribe.somefun(1).subscribe((res) => {
+    //             this.fun();
+    //         })
+    //     })
+    // }
+
+    // public accessingAndSettingParams(param1, param2, param3) {
+    //     param1.call();
+    //     param2.somevalue = '';
+    //     param3 = undefined;
+    // }
+
+    // public testFilterAndReturns(param) {
+    //     let a = this.platform.filter(a => a)
+
+    //     somefun()
+    //     return data;
+    // }
+
+    // public testArrowFunction = event => {
+    //     let a = this.platform.somethingelse(a => a)
+
+    //     somefun()
+    // }
+
+    public testRealReturn() {
+        if (a) {
+            return "a";
+        }
+        if (b) {
+            if (c) {
+                return "bc";
+            }
+        }
+    }
+
+    public testFilterWithReturn() {
+        this.someArr.filter(a => {
+            bla();
+            return a;
         })
     }
 
-    public accessingAndSettingParams(param1, param2, param3) {
-        param1.call();
-        param2.somevalue = '';
-        param3 = undefined;
+    // @HostListener
+    // public testArrowFunctionWithDecorator = event1 => {
+    //     this.someVal = this.platform.somethingelse(a => a)
+    //     this.someVal = this.platform.somethingelse(a => a)
+
+    //     somefun()
+    // }
+
+    get getThisName() {
+        return 'something';
     }
 
-    public testFilterAndReturns(param) {
-        let a = this.platform.filter(a => a)
-
-        somefun()
-        return data;
-    }
-
-    public testArrowFunction = event => {
-        let a = this.platform.somethingelse(a => a)
-
-        somefun()
-    }
-
-    @HostListener
-    public testArrowFunctionWithDecorator = event1 => {
-        let a = this.platform.somethingelse(a => a)
-
-        somefun()
-    }
+    // set setThisName(inValue) {
+    //     this.newValue = inValue;
+    // }
 };

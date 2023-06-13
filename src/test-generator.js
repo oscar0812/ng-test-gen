@@ -86,21 +86,42 @@ class TestGenerator {
         this.log(1, `});`);
     }
 
-    generateItTest(methodId, paramValues, spysAndExp, resultVal, padding = 0) {
+    generateMethodCall(method, methodId, paramValues, resultVal, padding = 0) {
+        if (method.kind == typescript.SyntaxKind.SetAccessor) {
+            // component.setAccessorName = value;
+            let p = paramValues[0].name;
+            this.log(2 + padding, `${this.varName}.${methodId} = ${p};`)
+        } else {
+            let assignment = resultVal ? 'let ' + resultVal + ' = ' : ''; // let result =
+
+            let paramsStr = method.kind == typescript.SyntaxKind.GetAccessor ? '' : `(${paramValues.map(pv => pv.name).join(', ')})`;
+            this.log(2 + padding, `${assignment}${this.varName}.${methodId}${paramsStr};`)
+        }
+    }
+
+    generateItTest(method, methodId, paramValues, spysAndExp, resultVal, padding = 0) {
         this.log(1 + padding, `it('should run #${methodId}()', () => {`);
         paramValues.forEach(pv => this.log(2 + padding, `let ${pv.name}: any = ${JSON.stringify(pv.value)};`))
         spysAndExp.spyOns.forEach(x => this.log(2 + padding, `${x}`));
-        this.log();
-        let assignment = resultVal ? 'let ' + resultVal + ' = ' : ''; // let result =
-        this.log(2 + padding, `${assignment}${this.varName}.${methodId}(${paramValues.map(pv => pv.name).join(', ')});\n`)
+
+        if ((paramValues && paramValues.length > 0) || (spysAndExp && spysAndExp.length > 0)) {
+            this.log();
+        }
+
+        this.generateMethodCall(method, methodId, paramValues, resultVal, padding);
+
+        if (spysAndExp.expectations && spysAndExp.expectations.length > 0) {
+            this.log();
+        }
+
         spysAndExp.expectations.forEach(x => this.log(2 + padding, `${x}`));
         this.log(1 + padding, `});`);
         this.log();
     }
 
-    generateItTestWithDescribe(methodId, paramValues, spysAndExp, resultVal) {
+    generateItTestWithDescribe(method, methodId, paramValues, spysAndExp, resultVal) {
         this.log(1, `describe('should run #${methodId}()', () => {`);
-        this.generateItTest(methodId, paramValues, spysAndExp, resultVal, 1)
+        this.generateItTest(method, methodId, paramValues, spysAndExp, resultVal, 1)
         this.log(1, `});`);
         this.log();
     }
@@ -113,9 +134,9 @@ class TestGenerator {
             let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal, paramValues);
 
             if (CONFIG.encapsulateTestsInDescribe === true) {
-                this.generateItTestWithDescribe(methodId, paramValues, spysAndExp, resultVal);
+                this.generateItTestWithDescribe(method, methodId, paramValues, spysAndExp, resultVal);
             } else {
-                this.generateItTest(methodId, paramValues, spysAndExp, resultVal);
+                this.generateItTest(method, methodId, paramValues, spysAndExp, resultVal);
             }
         });
     }
@@ -139,7 +160,7 @@ class TestGenerator {
         this.log(3, `declarations: [${declarations.join(', ')}],`);
         this.log(3, `schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],`);
 
-        this.log(3, `providers:[`);
+        this.log(3, `providers: [`);
         let providersStr = allProviders.map(p => (this.getIndentStr(4) + this.getProviderString(p))).join(',\n');
         this.log(providersStr);
         this.log(3, `]`)
