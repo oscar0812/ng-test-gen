@@ -127,6 +127,12 @@ export default class TypescriptNodeUtil {
                     current = parent;
                     parent = current.getFirstParent();
                 }
+
+                if(parent.kind != typescript.SyntaxKind.BinaryExpression) {
+                    // this.someMethod()...
+                    return undefined;
+                }
+                
                 return { propertyAccess: current.getText(this.sourceFile), isThis: varId.kind == typescript.SyntaxKind.ThisKeyword };
             }).filter(expr => expr != undefined);
 

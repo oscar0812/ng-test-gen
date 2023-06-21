@@ -20,8 +20,7 @@ class TestGenerator {
         this.providers.forEach(provider => provider.mock = true);
     }
 
-    generateSpyOnsAndExpectations(method, resultVal, paramValues) {
-        let callExprs = this.nodeUtil.getCallExpressionsInMethod(method);
+    generateSpyOnsAndExpectations(method, callExprs, resultVal, paramValues) {
         let spyOns = [];
         let expectations = [];
         callExprs.forEach(callExpr => {
@@ -99,8 +98,15 @@ class TestGenerator {
         }
     }
 
+    getTestDescription(method, methodId) {
+        let methodCallStr = (method.kind == typescript.SyntaxKind.GetAccessor ? 'GET ' : 
+        method.kind == typescript.SyntaxKind.SetAccessor ? 'SET ' : '') + `#${methodId}`;
+
+        return `should run ${methodCallStr}()`;
+    }
+
     generateItTest(method, methodId, paramValues, spysAndExp, resultVal, padding = 0) {
-        this.log(1 + padding, `it('should run #${methodId}()', () => {`);
+        this.log(1 + padding, `it('${this.getTestDescription(method, methodId)}', () => {`);
         paramValues.forEach(pv => this.log(2 + padding, `let ${pv.name}: any = ${JSON.stringify(pv.value)};`))
         spysAndExp.spyOns.forEach(x => this.log(2 + padding, `${x}`));
 
@@ -120,7 +126,7 @@ class TestGenerator {
     }
 
     generateItTestWithDescribe(method, methodId, paramValues, spysAndExp, resultVal) {
-        this.log(1, `describe('should run #${methodId}()', () => {`);
+        this.log(1, `describe('${this.getTestDescription(method, methodId)}', () => {`);
         this.generateItTest(method, methodId, paramValues, spysAndExp, resultVal, 1)
         this.log(1, `});`);
         this.log();
@@ -131,9 +137,11 @@ class TestGenerator {
             let resultVal = this.nodeUtil.hasValidReturnStatement(method) ? 'result' : undefined;
             let methodId = this.nodeUtil.getMethodId(method);
             let paramValues = this.nodeUtil.getMethodParmInitValues(method);
-            let spysAndExp = this.generateSpyOnsAndExpectations(method, resultVal, paramValues);
+            let callExprs = this.nodeUtil.getCallExpressionsInMethod(method);
+            let spysAndExp = this.generateSpyOnsAndExpectations(method, callExprs, resultVal, paramValues);
 
-            if (CONFIG.encapsulateTestsInDescribe === true) {
+            let hasMultiplePaths = method.hasChild(typescript.SyntaxKind.IfStatement) || callExprs.some(ce => ce.isSubscription);
+            if (hasMultiplePaths) {
                 this.generateItTestWithDescribe(method, methodId, paramValues, spysAndExp, resultVal);
             } else {
                 this.generateItTest(method, methodId, paramValues, spysAndExp, resultVal);
