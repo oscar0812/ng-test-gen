@@ -64,16 +64,27 @@ export default class TypescriptNodeUtil {
 
     getFirstAncestor(node, ancestorKind, minIndentLevel = 0) {
         let currentNode = node.getFirstParent();
-        while(currentNode && currentNode.indentLevel >= minIndentLevel && currentNode.kind != ancestorKind) {
+        while (currentNode && currentNode.indentLevel >= minIndentLevel && currentNode.kind != ancestorKind) {
             currentNode = currentNode.getFirstParent();
         }
-        
+
         return currentNode.kind == ancestorKind ? currentNode : undefined;
     }
 
     getIdentifiers(node) {
-        let validIds = [typescript.SyntaxKind.ThisKeyword, typescript.SyntaxKind.Identifier];
-        return node?.getAllChildren().filter(ch => validIds.indexOf(ch.kind) >= 0).map(ch => ch.getText(this.sourceFile));
+        // this.some.fun()
+        // var.some.fun2()
+        // this.something['hello'].fun()
+        let validIds = [typescript.SyntaxKind.ThisKeyword, typescript.SyntaxKind.Identifier, typescript.SyntaxKind.StringLiteral];
+
+        return node?.getAllChildren().filter(ch => validIds.indexOf(ch.kind) >= 0)
+            .map(ch => {
+                let txt = ch.getText(this.sourceFile);
+                if (ch.kind == typescript.SyntaxKind.StringLiteral) {
+                    txt = txt.substring(1, txt.length-1);
+                }
+                return txt;
+            });
     }
 
     getDecoratorWithIdentifier(node, identifier) {
@@ -128,11 +139,11 @@ export default class TypescriptNodeUtil {
                     parent = current.getFirstParent();
                 }
 
-                if(parent.kind != typescript.SyntaxKind.BinaryExpression) {
+                if (parent.kind != typescript.SyntaxKind.BinaryExpression) {
                     // this.someMethod()...
                     return undefined;
                 }
-                
+
                 return { propertyAccess: current.getText(this.sourceFile), isThis: varId.kind == typescript.SyntaxKind.ThisKeyword };
             }).filter(expr => expr != undefined);
 

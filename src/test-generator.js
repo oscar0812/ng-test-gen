@@ -127,6 +127,7 @@ class TestGenerator {
 
     generateItTestWithDescribe(method, methodId, paramValues, spysAndExp, resultVal) {
         this.log(1, `describe('${this.getTestDescription(method, methodId)}', () => {`);
+        this.log();
         this.generateItTest(method, methodId, paramValues, spysAndExp, resultVal, 1)
         this.log(1, `});`);
         this.log();
