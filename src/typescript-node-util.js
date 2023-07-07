@@ -122,6 +122,10 @@ export default class TypescriptNodeUtil {
             .map(binExpr => {
                 let children = binExpr.getAllChildren();
                 let varId = children.find(ch => ch.kind == typescript.SyntaxKind.ThisKeyword);
+                let hasEqualsAfter = varId != undefined && children.some(ch => ch.kind == typescript.SyntaxKind.EqualsToken && ch.pos >= varId.pos);
+
+                varId = hasEqualsAfter ? varId : undefined;
+
                 if (varId == undefined) {
                     let firstId = children.find(ch => ch.kind == typescript.SyntaxKind.Identifier);
                     let isVar = variableNames.some(v => firstId.getText(this.sourceFile).startsWith(v));

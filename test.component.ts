@@ -34,6 +34,11 @@ export class AppComponent implements OnInit {
         await this.ionStorage?.set(key, value);
         await this.ionStorage?.also?.set(key, value);
         await this.var.func();
+
+        let result = {};
+        result.var1 = this.platform.var1;
+
+        this.platform.var2 = result.var2;
     }
 
     public testFakeSet() {
@@ -49,77 +54,77 @@ export class AppComponent implements OnInit {
         this.platform.something['value1']['value2'].hello();
     }
 
-    // public testSubscribe1() {
-    //     this.sub1.subscribe(data => {
+    public testSubscribe1() {
+        this.sub1.subscribe(data => {
 
-    //     })
+        })
 
-    //     this.subb1.subb2.subb3(param1).subscribe(data => {
+        this.subb1.subb2.subb3(param1).subscribe(data => {
 
-    //     });
-    // }
+        });
+    }
 
-    // public testSubscribe2() {
-    //     this.a.b.c().subscribe((params) => {
-    //         this.testSubscribe.somefun(1).subscribe((res) => {
-    //             this.fun();
-    //         })
-    //     }, (error) => {
+    public testSubscribe2() {
+        this.a.b.c().subscribe((params) => {
+            this.testSubscribe.somefun(1).subscribe((res) => {
+                this.fun();
+            })
+        }, (error) => {
 
-    //     })
-    // }
+        })
+    }
 
-    // public accessingAndSettingParams(param1, param2, param3) {
-    //     param1.call();
-    //     param2.somevalue = '';
-    //     param3 = undefined;
-    // }
+    public accessingAndSettingParams(param1, param2, param3) {
+        param1.call();
+        param2.somevalue = '';
+        param3 = undefined;
+    }
 
-    // public testFilterAndReturns(param) {
-    //     let a = this.platform.filter(a => a)
+    public testFilterAndReturns(param) {
+        let a = this.platform.filter(a => a)
 
-    //     somefun()
-    //     return data;
-    // }
+        somefun()
+        return data;
+    }
 
-    // public testArrowFunction = event => {
-    //     let a = this.platform.somethingelse(a => a)
+    public testArrowFunction = event => {
+        let a = this.platform.somethingelse(a => a)
 
-    //     somefun()
-    // }
+        somefun()
+    }
 
-    // public testRealReturn() {
-    //     if (a) {
-    //         return "a";
-    //     }
-    //     if (b) {
-    //         if (c) {
-    //             return "bc";
-    //         }
-    //     }
-    // }
+    public testRealReturn() {
+        if (a) {
+            return "a";
+        }
+        if (b) {
+            if (c) {
+                return "bc";
+            }
+        }
+    }
 
-    // public testFilterWithReturn() {
-    //     this.someArr.filter(a => {
-    //         bla();
-    //         return a;
-    //     })
-    // }
+    public testFilterWithReturn() {
+        this.someArr.filter(a => {
+            bla();
+            return a;
+        })
+    }
 
-    // @HostListener
-    // public testArrowFunctionWithDecorator = event1 => {
-    //     this.someVal = this.platform.somethingelse(a => a)
-    //     this.someVal = this.platform.somethingelse(a => a)
+    @HostListener
+    public testArrowFunctionWithDecorator = event1 => {
+        this.someVal = this.platform.somethingelse(a => a)
+        this.someVal = this.platform.somethingelse(a => a)
 
-    //     somefun()
-    // }
+        somefun()
+    }
 
-    // get getThisName() {
-    //     return 'something';
-    // }
+    get getThisName() {
+        return 'something';
+    }
 
-    // set setThisName(inValue) {
-    //     this.newValue = this.otherNewValue = inValue;
-    // }
+    set setThisName(inValue) {
+        this.newValue = this.otherNewValue = inValue;
+    }
 
 };
